@@ -408,72 +408,108 @@ export default function App() {
     };
   });
 
-  // Helper: YYYY-MM-DD for N trading days back
-  const getTradingDay = (daysBack: number): string => {
-    const d = new Date();
-    let count = 0;
-    while (count < daysBack) {
-      d.setDate(d.getDate() - 1);
-      if (d.getDay() !== 0 && d.getDay() !== 6) count++;
-    }
+  // ── Dynamic SQL mock data ────────────────────────────────────────────────────
+  const fmtDate = (d: Date): string => {
     const y = d.getFullYear();
     const mo = String(d.getMonth() + 1).padStart(2, '0');
     const dy = String(d.getDate()).padStart(2, '0');
     return `${y}-${mo}-${dy}`;
   };
 
-  // Helper: last calendar day of a month, N months back
-  const getMonthEnd = (monthsBack: number): string => {
+  // N-th trading day back from today (1 = yesterday)
+  const recentTD = (n: number): string => {
     const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() - monthsBack + 1);
-    d.setDate(0);
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const dy = String(d.getDate()).padStart(2, '0');
-    return `${y}-${mo}-${dy}`;
+    let c = 0;
+    while (c < n) { d.setDate(d.getDate() - 1); if (d.getDay() !== 0 && d.getDay() !== 6) c++; }
+    return fmtDate(d);
   };
 
-  const td1 = getTradingDay(3), td2 = getTradingDay(2), td3 = getTradingDay(1);
-  const me1 = getMonthEnd(3), me2 = getMonthEnd(2), me3 = getMonthEnd(1);
+  // N-th trading day forward from the 3-year-ago anchor (0 = first trading day 3y ago)
+  const oldTD = (n: number): string => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 3);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    let c = 0;
+    while (c < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) c++; }
+    return fmtDate(d);
+  };
 
-  const sqlPricesData: string[][] = [
-    [td1, 'AAPL', '185.20'], [td1, 'MSFT', '374.51'],
-    [td1, 'JPM', '170.40'], [td1, 'GS', '381.22'],
-    [td1, 'BLK', '793.10'], [td1, 'XOM', '100.85'],
-    [td1, 'GLD', '189.63'], [td1, 'TLT', '95.44'],
-    [td2, 'AAPL', '184.37'], [td2, 'MSFT', '370.15'],
-    [td2, 'JPM', '168.91'], [td2, 'GS', '378.60'],
-    [td2, 'BLK', '788.45'], [td2, 'XOM', '99.21'],
-    [td2, 'GLD', '190.10'], [td2, 'TLT', '94.98'],
-    [td3, 'AAPL', '182.68'], [td3, 'MSFT', '366.30'],
-    [td3, 'JPM', '167.55'], [td3, 'GS', '375.40'],
+  // Last day of month: N months back (recent) or N months forward from 3y-ago anchor (old)
+  const recentME = (n: number): string => {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - n + 1); d.setDate(0); return fmtDate(d);
+  };
+  const oldME = (n: number): string => {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 3);
+    d.setDate(1); d.setMonth(d.getMonth() + n + 1); d.setDate(0); return fmtDate(d);
+  };
+
+  // Deterministic seeded random [0,1) — same date+ticker always → same value
+  const srand = (key: string): number => {
+    let h = 2166136261;
+    for (let i = 0; i < key.length; i++) { h = Math.imul(h ^ key.charCodeAt(i), 16777619) >>> 0; }
+    return h / 4294967296;
+  };
+
+  const SQL_TICKERS = ['AAPL', 'MSFT', 'JPM', 'GS', 'BLK', 'XOM', 'GLD', 'TLT'];
+  // Base prices: [recent (~2026), old (~3y ago)]
+  const BASE_P: Record<string, [number, number]> = {
+    AAPL: [225, 130], MSFT: [415, 240], JPM: [215, 130],
+    GS:   [510, 305], BLK:  [890, 655], XOM: [112, 110],
+    GLD:  [225, 172], TLT:  [ 88, 105],
+  };
+  const VOL_BASE: Record<string, number> = {
+    AAPL: 0.262, MSFT: 0.241, JPM: 0.198, GS: 0.218, BLK: 0.209, XOM: 0.251, GLD: 0.131, TLT: 0.148,
+  };
+
+  const genPrice = (date: string, t: string, era: 0 | 1): string =>
+    (BASE_P[t][era] * (1 + (srand(date + t + 'p') - 0.5) * 0.015)).toFixed(2);
+
+  const genReturn = (date: string, t: string, era: 0 | 1): string => {
+    // simulate a prev-day price by shifting seed slightly
+    const p1 = BASE_P[t][era] * (1 + (srand(date + t + 'prev') - 0.5) * 0.015);
+    const p2 = parseFloat(genPrice(date, t, era));
+    return Math.log(p2 / p1).toFixed(6);
+  };
+
+  const genVol = (date: string, t: string): string =>
+    Math.max(0.08, VOL_BASE[t] + (srand(date + t + 'v') - 0.5) * 0.04).toFixed(4);
+
+  // ASC view — oldest 20 rows (3y ago, date ascending)
+  const [oD0, oD1, oD2] = [oldTD(0), oldTD(1), oldTD(2)];
+  const sqlPricesDataAsc: string[][] = [
+    ...SQL_TICKERS.map(t => [oD0, t, genPrice(oD0, t, 1)]),
+    ...SQL_TICKERS.map(t => [oD1, t, genPrice(oD1, t, 1)]),
+    ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genPrice(oD2, t, 1)]),
+  ];
+  const sqlReturnsDataAsc: string[][] = [
+    ...SQL_TICKERS.map(t => [oD0, t, genReturn(oD0, t, 1)]),
+    ...SQL_TICKERS.map(t => [oD1, t, genReturn(oD1, t, 1)]),
+    ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genReturn(oD2, t, 1)]),
+  ];
+  const [oM0, oM1, oM2] = [oldME(0), oldME(1), oldME(2)];
+  const sqlVolDataAsc: string[][] = [
+    ...SQL_TICKERS.map(t => [oM0, t, genVol(oM0, t)]),
+    ...SQL_TICKERS.map(t => [oM1, t, genVol(oM1, t)]),
+    ...SQL_TICKERS.slice(0, 4).map(t => [oM2, t, genVol(oM2, t)]),
   ];
 
-  const sqlDailyReturnsData: string[][] = [
-    [td1, 'AAPL', '-0.004491'], [td1, 'MSFT', '-0.011636'],
-    [td1, 'JPM', '-0.008743'], [td1, 'GS', '-0.007154'],
-    [td1, 'BLK', '-0.005886'], [td1, 'XOM', '-0.016299'],
-    [td1, 'GLD', '0.002470'], [td1, 'TLT', '-0.004823'],
-    [td2, 'AAPL', '-0.009155'], [td2, 'MSFT', '-0.010423'],
-    [td2, 'JPM', '-0.008097'], [td2, 'GS', '-0.008513'],
-    [td2, 'BLK', '-0.005916'], [td2, 'XOM', '-0.016444'],
-    [td2, 'GLD', '-0.000578'], [td2, 'TLT', '-0.003791'],
-    [td3, 'AAPL', '0.002186'], [td3, 'MSFT', '0.005917'],
-    [td3, 'JPM', '0.003421'], [td3, 'GS', '0.001832'],
+  // DESC view — newest 20 rows (recent, date descending)
+  const [nD1, nD2, nD3] = [recentTD(1), recentTD(2), recentTD(3)];
+  const sqlPricesDataDesc: string[][] = [
+    ...SQL_TICKERS.map(t => [nD1, t, genPrice(nD1, t, 0)]),
+    ...SQL_TICKERS.map(t => [nD2, t, genPrice(nD2, t, 0)]),
+    ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genPrice(nD3, t, 0)]),
   ];
-
-  const sqlRollingVolData: string[][] = [
-    [me1, 'AAPL', '0.2541'], [me1, 'MSFT', '0.2214'],
-    [me1, 'JPM', '0.1852'], [me1, 'GS', '0.2103'],
-    [me1, 'BLK', '0.1921'], [me1, 'XOM', '0.2447'],
-    [me1, 'GLD', '0.1238'], [me1, 'TLT', '0.1451'],
-    [me2, 'AAPL', '0.2612'], [me2, 'MSFT', '0.2295'],
-    [me2, 'JPM', '0.1905'], [me2, 'GS', '0.2187'],
-    [me2, 'BLK', '0.1982'], [me2, 'XOM', '0.2513'],
-    [me2, 'GLD', '0.1302'], [me2, 'TLT', '0.1488'],
-    [me3, 'AAPL', '0.2489'], [me3, 'MSFT', '0.2178'],
-    [me3, 'JPM', '0.1834'], [me3, 'GS', '0.2071'],
+  const sqlReturnsDataDesc: string[][] = [
+    ...SQL_TICKERS.map(t => [nD1, t, genReturn(nD1, t, 0)]),
+    ...SQL_TICKERS.map(t => [nD2, t, genReturn(nD2, t, 0)]),
+    ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genReturn(nD3, t, 0)]),
+  ];
+  const [nM1, nM2, nM3] = [recentME(1), recentME(2), recentME(3)];
+  const sqlVolDataDesc: string[][] = [
+    ...SQL_TICKERS.map(t => [nM1, t, genVol(nM1, t)]),
+    ...SQL_TICKERS.map(t => [nM2, t, genVol(nM2, t)]),
+    ...SQL_TICKERS.slice(0, 4).map(t => [nM3, t, genVol(nM3, t)]),
   ];
 
   const handleRunCode = () => {
@@ -950,9 +986,7 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="font-mono">
-                                  {(sqlSortDesc
-                                    ? [...sqlPricesData].sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1]))
-                                    : sqlPricesData
+                                  {(sqlSortDesc ? sqlPricesDataDesc : sqlPricesDataAsc
                                   ).map(([date, ticker, price], i) => (
                                     <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-orange-50/40 transition-colors`}>
                                       <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
@@ -978,9 +1012,7 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="font-mono">
-                                  {(sqlSortDesc
-                                    ? [...sqlDailyReturnsData].sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1]))
-                                    : sqlDailyReturnsData
+                                  {(sqlSortDesc ? sqlReturnsDataDesc : sqlReturnsDataAsc
                                   ).map(([date, ticker, ret], i) => (
                                     <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-orange-50/40 transition-colors`}>
                                       <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
@@ -1006,9 +1038,7 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="font-mono">
-                                  {(sqlSortDesc
-                                    ? [...sqlRollingVolData].sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1]))
-                                    : sqlRollingVolData
+                                  {(sqlSortDesc ? sqlVolDataDesc : sqlVolDataAsc
                                   ).map(([date, ticker, vol], i) => (
                                     <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-orange-50/40 transition-colors`}>
                                       <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
