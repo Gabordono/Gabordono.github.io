@@ -408,6 +408,74 @@ export default function App() {
     };
   });
 
+  // Helper: YYYY-MM-DD for N trading days back
+  const getTradingDay = (daysBack: number): string => {
+    const d = new Date();
+    let count = 0;
+    while (count < daysBack) {
+      d.setDate(d.getDate() - 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) count++;
+    }
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const dy = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${dy}`;
+  };
+
+  // Helper: last calendar day of a month, N months back
+  const getMonthEnd = (monthsBack: number): string => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - monthsBack + 1);
+    d.setDate(0);
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const dy = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${dy}`;
+  };
+
+  const td1 = getTradingDay(3), td2 = getTradingDay(2), td3 = getTradingDay(1);
+  const me1 = getMonthEnd(3), me2 = getMonthEnd(2), me3 = getMonthEnd(1);
+
+  const sqlPricesData: string[][] = [
+    [td1, 'AAPL', '185.20'], [td1, 'MSFT', '374.51'],
+    [td1, 'JPM', '170.40'], [td1, 'GS', '381.22'],
+    [td1, 'BLK', '793.10'], [td1, 'XOM', '100.85'],
+    [td1, 'GLD', '189.63'], [td1, 'TLT', '95.44'],
+    [td2, 'AAPL', '184.37'], [td2, 'MSFT', '370.15'],
+    [td2, 'JPM', '168.91'], [td2, 'GS', '378.60'],
+    [td2, 'BLK', '788.45'], [td2, 'XOM', '99.21'],
+    [td2, 'GLD', '190.10'], [td2, 'TLT', '94.98'],
+    [td3, 'AAPL', '182.68'], [td3, 'MSFT', '366.30'],
+    [td3, 'JPM', '167.55'], [td3, 'GS', '375.40'],
+  ];
+
+  const sqlDailyReturnsData: string[][] = [
+    [td1, 'AAPL', '-0.004491'], [td1, 'MSFT', '-0.011636'],
+    [td1, 'JPM', '-0.008743'], [td1, 'GS', '-0.007154'],
+    [td1, 'BLK', '-0.005886'], [td1, 'XOM', '-0.016299'],
+    [td1, 'GLD', '0.002470'], [td1, 'TLT', '-0.004823'],
+    [td2, 'AAPL', '-0.009155'], [td2, 'MSFT', '-0.010423'],
+    [td2, 'JPM', '-0.008097'], [td2, 'GS', '-0.008513'],
+    [td2, 'BLK', '-0.005916'], [td2, 'XOM', '-0.016444'],
+    [td2, 'GLD', '-0.000578'], [td2, 'TLT', '-0.003791'],
+    [td3, 'AAPL', '0.002186'], [td3, 'MSFT', '0.005917'],
+    [td3, 'JPM', '0.003421'], [td3, 'GS', '0.001832'],
+  ];
+
+  const sqlRollingVolData: string[][] = [
+    [me1, 'AAPL', '0.2541'], [me1, 'MSFT', '0.2214'],
+    [me1, 'JPM', '0.1852'], [me1, 'GS', '0.2103'],
+    [me1, 'BLK', '0.1921'], [me1, 'XOM', '0.2447'],
+    [me1, 'GLD', '0.1238'], [me1, 'TLT', '0.1451'],
+    [me2, 'AAPL', '0.2612'], [me2, 'MSFT', '0.2295'],
+    [me2, 'JPM', '0.1905'], [me2, 'GS', '0.2187'],
+    [me2, 'BLK', '0.1982'], [me2, 'XOM', '0.2513'],
+    [me2, 'GLD', '0.1302'], [me2, 'TLT', '0.1488'],
+    [me3, 'AAPL', '0.2489'], [me3, 'MSFT', '0.2178'],
+    [me3, 'JPM', '0.1834'], [me3, 'GS', '0.2071'],
+  ];
+
   const handleRunCode = () => {
     setActiveTab('output');
     setRunState('running');
@@ -882,29 +950,10 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="font-mono">
-                                  {(sqlSortDesc ? [
-                                    ['2024-01-02', 'AAPL', '185.20'], ['2024-01-02', 'MSFT', '374.51'],
-                                    ['2024-01-02', 'JPM', '170.40'], ['2024-01-02', 'GS', '381.22'],
-                                    ['2024-01-02', 'BLK', '793.10'], ['2024-01-02', 'XOM', '100.85'],
-                                    ['2024-01-02', 'GLD', '189.63'], ['2024-01-02', 'TLT', '95.44'],
-                                    ['2024-01-03', 'AAPL', '184.37'], ['2024-01-03', 'MSFT', '370.15'],
-                                    ['2024-01-03', 'JPM', '168.91'], ['2024-01-03', 'GS', '378.60'],
-                                    ['2024-01-03', 'BLK', '788.45'], ['2024-01-03', 'XOM', '99.21'],
-                                    ['2024-01-03', 'GLD', '190.10'], ['2024-01-03', 'TLT', '94.98'],
-                                    ['2024-01-04', 'AAPL', '182.68'], ['2024-01-04', 'MSFT', '366.30'],
-                                    ['2024-01-04', 'JPM', '167.55'], ['2024-01-04', 'GS', '375.40'],
-                                  ].slice().sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1])) : [
-                                    ['2024-01-02', 'AAPL', '185.20'], ['2024-01-02', 'MSFT', '374.51'],
-                                    ['2024-01-02', 'JPM', '170.40'], ['2024-01-02', 'GS', '381.22'],
-                                    ['2024-01-02', 'BLK', '793.10'], ['2024-01-02', 'XOM', '100.85'],
-                                    ['2024-01-02', 'GLD', '189.63'], ['2024-01-02', 'TLT', '95.44'],
-                                    ['2024-01-03', 'AAPL', '184.37'], ['2024-01-03', 'MSFT', '370.15'],
-                                    ['2024-01-03', 'JPM', '168.91'], ['2024-01-03', 'GS', '378.60'],
-                                    ['2024-01-03', 'BLK', '788.45'], ['2024-01-03', 'XOM', '99.21'],
-                                    ['2024-01-03', 'GLD', '190.10'], ['2024-01-03', 'TLT', '94.98'],
-                                    ['2024-01-04', 'AAPL', '182.68'], ['2024-01-04', 'MSFT', '366.30'],
-                                    ['2024-01-04', 'JPM', '167.55'], ['2024-01-04', 'GS', '375.40'],
-                                  ]).map(([date, ticker, price], i) => (
+                                  {(sqlSortDesc
+                                    ? [...sqlPricesData].sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1]))
+                                    : sqlPricesData
+                                  ).map(([date, ticker, price], i) => (
                                     <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-orange-50/40 transition-colors`}>
                                       <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
                                       <td className="px-3 py-1.5 text-slate-600">{date}</td>
@@ -929,29 +978,10 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="font-mono">
-                                  {(sqlSortDesc ? [
-                                    ['2024-01-03', 'AAPL', '-0.004491'], ['2024-01-03', 'MSFT', '-0.011636'],
-                                    ['2024-01-03', 'JPM', '-0.008743'], ['2024-01-03', 'GS', '-0.007154'],
-                                    ['2024-01-03', 'BLK', '-0.005886'], ['2024-01-03', 'XOM', '-0.016299'],
-                                    ['2024-01-03', 'GLD', '0.002470'], ['2024-01-03', 'TLT', '-0.004823'],
-                                    ['2024-01-04', 'AAPL', '-0.009155'], ['2024-01-04', 'MSFT', '-0.010423'],
-                                    ['2024-01-04', 'JPM', '-0.008097'], ['2024-01-04', 'GS', '-0.008513'],
-                                    ['2024-01-04', 'BLK', '-0.005916'], ['2024-01-04', 'XOM', '-0.016444'],
-                                    ['2024-01-04', 'GLD', '-0.000578'], ['2024-01-04', 'TLT', '-0.003791'],
-                                    ['2024-01-05', 'AAPL', '0.002186'], ['2024-01-05', 'MSFT', '0.005917'],
-                                    ['2024-01-05', 'JPM', '0.003421'], ['2024-01-05', 'GS', '0.001832'],
-                                  ].slice().sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1])) : [
-                                    ['2024-01-03', 'AAPL', '-0.004491'], ['2024-01-03', 'MSFT', '-0.011636'],
-                                    ['2024-01-03', 'JPM', '-0.008743'], ['2024-01-03', 'GS', '-0.007154'],
-                                    ['2024-01-03', 'BLK', '-0.005886'], ['2024-01-03', 'XOM', '-0.016299'],
-                                    ['2024-01-03', 'GLD', '0.002470'], ['2024-01-03', 'TLT', '-0.004823'],
-                                    ['2024-01-04', 'AAPL', '-0.009155'], ['2024-01-04', 'MSFT', '-0.010423'],
-                                    ['2024-01-04', 'JPM', '-0.008097'], ['2024-01-04', 'GS', '-0.008513'],
-                                    ['2024-01-04', 'BLK', '-0.005916'], ['2024-01-04', 'XOM', '-0.016444'],
-                                    ['2024-01-04', 'GLD', '-0.000578'], ['2024-01-04', 'TLT', '-0.003791'],
-                                    ['2024-01-05', 'AAPL', '0.002186'], ['2024-01-05', 'MSFT', '0.005917'],
-                                    ['2024-01-05', 'JPM', '0.003421'], ['2024-01-05', 'GS', '0.001832'],
-                                  ]).map(([date, ticker, ret], i) => (
+                                  {(sqlSortDesc
+                                    ? [...sqlDailyReturnsData].sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1]))
+                                    : sqlDailyReturnsData
+                                  ).map(([date, ticker, ret], i) => (
                                     <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-orange-50/40 transition-colors`}>
                                       <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
                                       <td className="px-3 py-1.5 text-slate-600">{date}</td>
@@ -976,29 +1006,10 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="font-mono">
-                                  {(sqlSortDesc ? [
-                                    ['2024-01-31', 'AAPL', '0.2541'], ['2024-01-31', 'MSFT', '0.2214'],
-                                    ['2024-01-31', 'JPM', '0.1852'], ['2024-01-31', 'GS', '0.2103'],
-                                    ['2024-01-31', 'BLK', '0.1921'], ['2024-01-31', 'XOM', '0.2447'],
-                                    ['2024-01-31', 'GLD', '0.1238'], ['2024-01-31', 'TLT', '0.1451'],
-                                    ['2024-02-29', 'AAPL', '0.2612'], ['2024-02-29', 'MSFT', '0.2295'],
-                                    ['2024-02-29', 'JPM', '0.1905'], ['2024-02-29', 'GS', '0.2187'],
-                                    ['2024-02-29', 'BLK', '0.1982'], ['2024-02-29', 'XOM', '0.2513'],
-                                    ['2024-02-29', 'GLD', '0.1302'], ['2024-02-29', 'TLT', '0.1488'],
-                                    ['2024-03-28', 'AAPL', '0.2489'], ['2024-03-28', 'MSFT', '0.2178'],
-                                    ['2024-03-28', 'JPM', '0.1834'], ['2024-03-28', 'GS', '0.2071'],
-                                  ].slice().sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1])) : [
-                                    ['2024-01-31', 'AAPL', '0.2541'], ['2024-01-31', 'MSFT', '0.2214'],
-                                    ['2024-01-31', 'JPM', '0.1852'], ['2024-01-31', 'GS', '0.2103'],
-                                    ['2024-01-31', 'BLK', '0.1921'], ['2024-01-31', 'XOM', '0.2447'],
-                                    ['2024-01-31', 'GLD', '0.1238'], ['2024-01-31', 'TLT', '0.1451'],
-                                    ['2024-02-29', 'AAPL', '0.2612'], ['2024-02-29', 'MSFT', '0.2295'],
-                                    ['2024-02-29', 'JPM', '0.1905'], ['2024-02-29', 'GS', '0.2187'],
-                                    ['2024-02-29', 'BLK', '0.1982'], ['2024-02-29', 'XOM', '0.2513'],
-                                    ['2024-02-29', 'GLD', '0.1302'], ['2024-02-29', 'TLT', '0.1488'],
-                                    ['2024-03-28', 'AAPL', '0.2489'], ['2024-03-28', 'MSFT', '0.2178'],
-                                    ['2024-03-28', 'JPM', '0.1834'], ['2024-03-28', 'GS', '0.2071'],
-                                  ]).map(([date, ticker, vol], i) => (
+                                  {(sqlSortDesc
+                                    ? [...sqlRollingVolData].sort((a, b) => b[0].localeCompare(a[0]) || a[1].localeCompare(b[1]))
+                                    : sqlRollingVolData
+                                  ).map(([date, ticker, vol], i) => (
                                     <tr key={i} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-orange-50/40 transition-colors`}>
                                       <td className="px-3 py-1.5 text-slate-400">{i + 1}</td>
                                       <td className="px-3 py-1.5 text-slate-600">{date}</td>
