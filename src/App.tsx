@@ -11,7 +11,6 @@ import {
   Mail,
   PieChart,
   TrendingUp,
-  Download,
   Users,
   Target,
   Calendar,
@@ -48,7 +47,8 @@ import {
   Label,
   ReferenceLine,
   AreaChart,
-  Area
+  Area,
+  LabelList
 } from 'recharts';
 import { portfolioRiskCode, portfolioRiskCodeSnippet, portfolioRiskSQLCode } from './data/portfolioRiskCode';
 
@@ -72,7 +72,7 @@ const content = {
         deg: 'Közgazdasági diploma'
       },
       btnInterview: 'Interjú egyeztetése',
-      btnCV: 'Önéletrajz letöltése (PDF)'
+      btnCV: 'CV Kérése'
     },
     experience: {
       title: 'Szakmai Tapasztalat',
@@ -163,7 +163,7 @@ const content = {
         deg: 'Economic Degree'
       },
       btnInterview: 'Schedule Interview',
-      btnCV: 'Download CV (PDF)'
+      btnCV: 'Request CV'
     },
     experience: {
       title: 'Professional Experience',
@@ -349,6 +349,37 @@ export default function App() {
   };
 
   const hasReal = dataLoaded && !dataError && Object.keys(realPrices).length === 8;
+
+  // ── Portfolio-level KPI metrics ───────────────────────────────────────────────
+  const portKPI = hasReal
+    ? (() => {
+        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+        const portRets: number[] = [];
+        for (let i = 1; i < minLen; i++) {
+          portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
+        }
+        const n = portRets.length;
+        const mean = portRets.reduce((s, r) => s + r, 0) / n;
+        const variance = portRets.reduce((s, r) => s + (r - mean) ** 2, 0) / (n - 1);
+        const ret = mean * 252;
+        const vol = Math.sqrt(variance * 252);
+        const sharpe = vol > 0 ? (ret - RFREE) / vol : 0;
+        let cum = 1, peak = 1, maxDD = 0;
+        for (const r of portRets) { cum *= Math.exp(r); if (cum > peak) peak = cum; const dd = (cum - peak) / peak; if (dd < maxDD) maxDD = dd; }
+        const sorted = [...portRets].sort((a, b) => a - b);
+        const varIdx = Math.max(1, Math.floor(0.05 * n));
+        const var95 = sorted[varIdx] * 100;
+        const cvar95 = sorted.slice(0, varIdx).reduce((s, r) => s + r, 0) / varIdx * 100;
+        return {
+          ret: Math.round(ret * 1000) / 10,
+          vol: Math.round(vol * 1000) / 10,
+          sharpe: Math.round(sharpe * 100) / 100,
+          maxDD: Math.round(maxDD * 1000) / 10,
+          var95: Math.round(var95 * 100) / 100,
+          cvar95: Math.round(cvar95 * 100) / 100,
+        };
+      })()
+    : { ret: 18.4, vol: 15.2, sharpe: 1.21, maxDD: -12.4, var95: -2.1, cvar95: -3.4 };
 
   // ── Derived chart data (real data when loaded, mock fallback otherwise) ────────
   const mockSharpe = hasReal
@@ -858,10 +889,14 @@ export default function App() {
             <a href="#contact" className="inline-flex items-center justify-center h-12 px-6 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
               {t.hero.btnInterview}
             </a>
-            <button className="inline-flex items-center gap-2 justify-center h-12 px-6 font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
-              <Download className="w-4 h-4" />
+            <a
+              href={`https://mail.google.com/mail/?view=cm&to=szabgab97@gmail.com&su=${encodeURIComponent("Exciting Opportunity at [Company Name] – We'd Love to See Your CV")}&body=${encodeURIComponent('Dear Gábor,\n\nI hope this message finds you well.\n\nI came across your profile on [LinkedIn / our database / referral] and was impressed by your experience in [relevant field/skill]. We are currently looking for a [Position Name] at [Company Name], and we believe your background could be an excellent fit.\n\nWould you be open to sharing your most up-to-date CV? We would love to learn more about your qualifications and discuss a potential opportunity with you.\n\nPlease feel free to reach out if you have any questions. We look forward to hearing from you.\n\nKind regards,\n[HR Name]\n[HR Job Title]\n[Company Name]\n[Phone Number]\n[Email Address]')}`}
+              target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 justify-center h-12 px-6 font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              <Mail className="w-4 h-4" />
               {t.hero.btnCV}
-            </button>
+            </a>
           </div>
         </motion.section>
 
@@ -1399,27 +1434,27 @@ export default function App() {
                                       <div className="grid grid-cols-2 gap-4">
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                           <p className="text-xs text-slate-500 font-medium mb-1">{lang === 'hu' ? 'Éves Hozam' : 'Ann. Return'}</p>
-                                          <p className="text-lg font-bold text-emerald-600">18.4%</p>
+                                          <p className="text-lg font-bold text-emerald-600">{portKPI.ret > 0 ? '+' : ''}{portKPI.ret}%</p>
                                         </div>
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                           <p className="text-xs text-slate-500 font-medium mb-1">{lang === 'hu' ? 'Éves Volatilitás' : 'Ann. Volatility'}</p>
-                                          <p className="text-lg font-bold text-slate-700">15.2%</p>
+                                          <p className="text-lg font-bold text-slate-700">{portKPI.vol}%</p>
                                         </div>
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                           <p className="text-xs text-slate-500 font-medium mb-1">Sharpe Ratio</p>
-                                          <p className="text-lg font-bold text-indigo-600">1.21</p>
+                                          <p className="text-lg font-bold text-indigo-600">{portKPI.sharpe}</p>
                                         </div>
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                           <p className="text-xs text-slate-500 font-medium mb-1">Max Drawdown</p>
-                                          <p className="text-lg font-bold text-red-500">-12.4%</p>
+                                          <p className="text-lg font-bold text-red-500">{portKPI.maxDD}%</p>
                                         </div>
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                           <p className="text-xs text-slate-500 font-medium mb-1">VaR (95%)</p>
-                                          <p className="text-lg font-bold text-orange-500">-2.1%</p>
+                                          <p className="text-lg font-bold text-orange-500">{portKPI.var95}%</p>
                                         </div>
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                                           <p className="text-xs text-slate-500 font-medium mb-1">CVaR (95%)</p>
-                                          <p className="text-lg font-bold text-red-600">-3.4%</p>
+                                          <p className="text-lg font-bold text-red-600">{portKPI.cvar95}%</p>
                                         </div>
                                       </div>
                                     </div>
@@ -1472,7 +1507,7 @@ export default function App() {
                                             <RechartsTooltip />
                                             <Legend />
                                             <Line type="monotone" dataKey="portfolio" name="Portfolio Vol" stroke="#F1C40F" strokeWidth={2} dot={false} />
-                                            <Line type="monotone" dataKey="market" name="S&P 500 Vol" stroke="#95A5A6" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                            <Line type="monotone" dataKey="benchmark" name="S&P 500 Vol" stroke="#95A5A6" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                                           </RechartsLineChart>
                                         </ResponsiveContainer>
                                       </div>
@@ -1511,9 +1546,14 @@ export default function App() {
                                               {mockRiskReturn.filter(d => !d.isPort && !d.isMarket).map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                               ))}
+                                              <LabelList dataKey="name" position="top" style={{ fontSize: 10, fill: '#475569' }} />
                                             </Scatter>
-                                            <Scatter name={lang === 'hu' ? 'Portfólió' : 'Portfolio'} data={mockRiskReturn.filter(d => d.isPort)} fill="#F1C40F" shape="star" />
-                                            <Scatter name={lang === 'hu' ? 'S&P 500 (Piac)' : 'S&P 500 (Market)'} data={mockRiskReturn.filter(d => d.isMarket)} fill="#95A5A6" shape="triangle" />
+                                            <Scatter name={lang === 'hu' ? 'Portfólió' : 'Portfolio'} data={mockRiskReturn.filter(d => d.isPort)} fill="#F1C40F" shape="star">
+                                              <LabelList dataKey="name" position="top" style={{ fontSize: 10, fill: '#475569' }} />
+                                            </Scatter>
+                                            <Scatter name={lang === 'hu' ? 'S&P 500 (Piac)' : 'S&P 500 (Market)'} data={mockRiskReturn.filter(d => d.isMarket)} fill="#95A5A6" shape="triangle">
+                                              <LabelList dataKey="name" position="top" style={{ fontSize: 10, fill: '#475569' }} />
+                                            </Scatter>
                                           </ScatterChart>
                                         </ResponsiveContainer>
                                       </div>
