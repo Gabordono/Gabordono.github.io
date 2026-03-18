@@ -237,6 +237,8 @@ const content = {
   }
 };
 
+type PricePoint = { date: string; close: number };
+
 export default function App() {
   const [lang, setLang] = useState<'hu' | 'en'>('en');
   const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -250,6 +252,44 @@ export default function App() {
   const [sqlTable, setSqlTable] = useState<'prices' | 'daily_returns' | 'rolling_volatility'>('prices');
   const [sqlSortDesc, setSqlSortDesc] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // ── Real Yahoo Finance data ────────────────────────────────────────────────
+  const [realPrices, setRealPrices] = useState<Record<string, PricePoint[]>>({});
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataError, setDataError] = useState(false);
+
+  useEffect(() => {
+    const FETCH_TICKERS = ['AAPL', 'MSFT', 'JPM', 'GS', 'BLK', 'XOM', 'GLD', 'TLT'];
+    const now = Math.floor(Date.now() / 1000);
+    const start = now - 3 * 365 * 24 * 3600;
+    Promise.all(
+      FETCH_TICKERS.map(async ticker => {
+        const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&period1=${start}&period2=${now}`;
+        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(yUrl)}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const r = json.chart.result[0];
+        const closes: number[] = r.indicators.quote[0].close;
+        return {
+          ticker,
+          prices: (r.timestamp as number[]).map((ts, i) => {
+            const d = new Date(ts * 1000);
+            return {
+              date: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+              close: closes[i]
+            };
+          }).filter(p => p.close != null && !isNaN(p.close))
+        };
+      })
+    )
+      .then(results => {
+        const map: Record<string, PricePoint[]> = {};
+        results.forEach(r => { map[r.ticker] = r.prices; });
+        setRealPrices(map);
+        setDataLoaded(true);
+      })
+      .catch(() => { setDataLoaded(true); setDataError(true); });
+  }, []);
 
   const t = content[lang];
 
@@ -279,101 +319,203 @@ export default function App() {
     { name: 'TLT', value: 5, color: '#1ABC9C' },
   ];
 
-  const mockSharpe = [
-    { name: 'AAPL', sharpe: 1.12 },
-    { name: 'MSFT', sharpe: 1.05 },
-    { name: 'JPM', sharpe: 0.85 },
-    { name: 'GS', sharpe: 0.72 },
-    { name: 'BLK', sharpe: 0.91 },
-    { name: 'XOM', sharpe: 0.65 },
-    { name: 'GLD', sharpe: 0.45 },
-    { name: 'TLT', sharpe: -0.15 },
-  ].sort((a, b) => a.sharpe - b.sharpe);
+  // ── Computation helpers ───────────────────────────────────────────────────────
+  const PORTFOLIO_W: Record<string, number> = { AAPL: 0.20, MSFT: 0.20, JPM: 0.15, GS: 0.10, BLK: 0.10, XOM: 0.10, GLD: 0.10, TLT: 0.05 };
+  const TICKER_COLORS: Record<string, string> = { AAPL: '#2CA6A4', MSFT: '#C9A84C', JPM: '#E05A4E', GS: '#4CAF7D', BLK: '#9B59B6', XOM: '#E67E22', GLD: '#3498DB', TLT: '#1ABC9C' };
+  const TICKER_CATS: Record<string, string> = { AAPL: 'Tech', MSFT: 'Tech', JPM: 'Financials', GS: 'Financials', BLK: 'Financials', XOM: 'Energy', GLD: 'Commodity', TLT: 'Bonds' };
+  const ALL_TICKERS = ['AAPL', 'MSFT', 'JPM', 'GS', 'BLK', 'XOM', 'GLD', 'TLT'] as const;
+  const RFREE = 0.0525;
+
+  const retsFromPrices = (prices: { date: string; close: number }[]) =>
+    prices.slice(1).map((p, i) => ({ date: p.date, r: Math.log(p.close / prices[i].close) }));
+
+  const annMetrics = (rets: { r: number }[]) => {
+    if (rets.length < 2) return { ret: 0, vol: 0 };
+    const n = rets.length;
+    const mean = rets.reduce((s, x) => s + x.r, 0) / n;
+    const variance = rets.reduce((s, x) => s + (x.r - mean) ** 2, 0) / (n - 1);
+    return { ret: mean * 252, vol: Math.sqrt(variance * 252) };
+  };
+
+  const pearsonCorr = (a: number[], b: number[]) => {
+    const n = Math.min(a.length, b.length);
+    if (n < 2) return 0;
+    const ma = a.slice(0, n).reduce((s, x) => s + x, 0) / n;
+    const mb = b.slice(0, n).reduce((s, x) => s + x, 0) / n;
+    const num = a.slice(0, n).reduce((s, x, i) => s + (x - ma) * (b[i] - mb), 0);
+    const da = Math.sqrt(a.slice(0, n).reduce((s, x) => s + (x - ma) ** 2, 0));
+    const db = Math.sqrt(b.slice(0, n).reduce((s, x) => s + (x - mb) ** 2, 0));
+    return da && db ? Math.round(num / (da * db) * 100) / 100 : 0;
+  };
+
+  const hasReal = dataLoaded && !dataError && Object.keys(realPrices).length === 8;
+
+  // ── Derived chart data (real data when loaded, mock fallback otherwise) ────────
+  const mockSharpe = hasReal
+    ? ALL_TICKERS.map(t => {
+        const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
+        return { name: t, sharpe: vol > 0 ? Math.round((ret - RFREE) / vol * 1000) / 1000 : 0 };
+      }).sort((a, b) => a.sharpe - b.sharpe)
+    : [
+        { name: 'AAPL', sharpe: 1.12 }, { name: 'MSFT', sharpe: 1.05 },
+        { name: 'JPM', sharpe: 0.85 }, { name: 'GS', sharpe: 0.72 },
+        { name: 'BLK', sharpe: 0.91 }, { name: 'XOM', sharpe: 0.65 },
+        { name: 'GLD', sharpe: 0.45 }, { name: 'TLT', sharpe: -0.15 },
+      ].sort((a, b) => a.sharpe - b.sharpe);
 
   const getMockReturns = (filter: '1M' | '1Y' | '5Y') => {
-    const today = new Date();
+    if (hasReal && (realPrices['AAPL']?.length ?? 0) > 2) {
+      const base = realPrices['AAPL'];
+      const endMs = new Date(base[base.length - 1].date).getTime();
+      let startMs: number;
+      if (filter === '1M') startMs = endMs - 31 * 86400000;
+      else if (filter === '1Y') startMs = endMs - 366 * 86400000;
+      else startMs = endMs - 5 * 366 * 86400000;
 
+      let allDates = base.filter(p => new Date(p.date).getTime() >= startMs).map(p => p.date);
+      if (filter === '1Y' && allDates.length > 52) {
+        const step = Math.floor(allDates.length / 52);
+        allDates = allDates.filter((_, i) => i % step === 0).concat(allDates[allDates.length - 1]);
+      } else if (filter === '5Y' && allDates.length > 60) {
+        const step = Math.floor(allDates.length / 60);
+        allDates = allDates.filter((_, i) => i % step === 0).concat(allDates[allDates.length - 1]);
+      }
+
+      const pMap: Record<string, Record<string, number>> = {};
+      ALL_TICKERS.forEach(t => {
+        pMap[t] = {};
+        (realPrices[t] || []).forEach(p => { pMap[t][p.date] = p.close; });
+      });
+      const p0: Record<string, number> = {};
+      ALL_TICKERS.forEach(t => { p0[t] = pMap[t][allDates[0]] ?? 0; });
+
+      return allDates.map(date => {
+        let port = 0, bench = 0;
+        ALL_TICKERS.forEach(t => {
+          const cur = pMap[t][date], base0 = p0[t];
+          if (cur && base0) { port += PORTFOLIO_W[t] * (cur / base0) * 100; bench += (1 / 8) * (cur / base0) * 100; }
+        });
+        const label = filter === '1M'
+          ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' })
+          : filter === '1Y'
+          ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short' })
+          : date.slice(0, 4);
+        return { date: label, portfolio: Math.round(port * 100) / 100, benchmark: Math.round(bench * 100) / 100 };
+      });
+    }
+    // fallback
+    const today = new Date();
     if (filter === '1M') {
       return Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() - (29 - i));
-        return {
-          date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }),
-          portfolio: 100 + (i * 0.1) + (Math.random() * 2 - 1),
-          benchmark: 100 + (i * 0.08) + (Math.random() * 1.5 - 0.75),
-        };
+        const d = new Date(today); d.setDate(today.getDate() - (29 - i));
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: 100 + (i * 0.1) + (Math.random() * 2 - 1), benchmark: 100 + (i * 0.08) + (Math.random() * 1.5 - 0.75) };
       });
     } else if (filter === '1Y') {
       return Array.from({ length: 12 }, (_, i) => {
-        const d = new Date(today);
-        d.setMonth(today.getMonth() - (11 - i));
-        return {
-          date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short' }),
-          portfolio: 100 + (i * 1.5) + (Math.random() * 5 - 2.5),
-          benchmark: 100 + (i * 1.2) + (Math.random() * 4 - 2),
-        };
+        const d = new Date(today); d.setMonth(today.getMonth() - (11 - i));
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short' }), portfolio: 100 + (i * 1.5) + (Math.random() * 5 - 2.5), benchmark: 100 + (i * 1.2) + (Math.random() * 4 - 2) };
       });
     } else {
       return Array.from({ length: 5 }, (_, i) => {
         const year = today.getFullYear() - (4 - i);
-        return {
-          date: `${year}`,
-          portfolio: 100 + (i * 15) + (Math.random() * 20 - 10),
-          benchmark: 100 + (i * 12) + (Math.random() * 15 - 7.5),
-        };
+        return { date: `${year}`, portfolio: 100 + (i * 15) + (Math.random() * 20 - 10), benchmark: 100 + (i * 12) + (Math.random() * 15 - 7.5) };
       });
     }
   };
 
   const mockReturns = getMockReturns(timeFilter);
 
-  const mockRiskReturn = [
-    { name: 'AAPL', vol: 25.4, ret: 32.1, color: '#2CA6A4' },
-    { name: 'MSFT', vol: 22.1, ret: 28.5, color: '#C9A84C' },
-    { name: 'JPM', vol: 18.5, ret: 12.4, color: '#E05A4E' },
-    { name: 'GS', vol: 21.0, ret: 14.2, color: '#4CAF7D' },
-    { name: 'BLK', vol: 19.2, ret: 16.8, color: '#9B59B6' },
-    { name: 'XOM', vol: 24.5, ret: 18.5, color: '#E67E22' },
-    { name: 'GLD', vol: 12.4, ret: 5.2, color: '#3498DB' },
-    { name: 'TLT', vol: 14.5, ret: -2.1, color: '#1ABC9C' },
-    { name: 'Portfolio', vol: 15.2, ret: 18.4, isPort: true, color: '#F1C40F' },
-    { name: 'S&P 500 (Piac)', vol: 18.0, ret: 15.0, isMarket: true, color: '#95A5A6' }
-  ];
+  const mockRiskReturn = hasReal
+    ? (() => {
+        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+        const portRets: { r: number }[] = [];
+        for (let i = 1; i < minLen; i++) {
+          portRets.push({ r: ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0) });
+        }
+        const { ret: pRet, vol: pVol } = annMetrics(portRets);
+        return [
+          ...ALL_TICKERS.map(t => {
+            const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
+            return { name: t, vol: Math.round(vol * 1000) / 10, ret: Math.round(ret * 1000) / 10, color: TICKER_COLORS[t] };
+          }),
+          { name: 'Portfolio', vol: Math.round(pVol * 1000) / 10, ret: Math.round(pRet * 1000) / 10, isPort: true, color: '#F1C40F' },
+          { name: 'S&P 500 (Piac)', vol: 18.0, ret: 15.0, isMarket: true, color: '#95A5A6' }
+        ];
+      })()
+    : [
+        { name: 'AAPL', vol: 25.4, ret: 32.1, color: '#2CA6A4' }, { name: 'MSFT', vol: 22.1, ret: 28.5, color: '#C9A84C' },
+        { name: 'JPM', vol: 18.5, ret: 12.4, color: '#E05A4E' }, { name: 'GS', vol: 21.0, ret: 14.2, color: '#4CAF7D' },
+        { name: 'BLK', vol: 19.2, ret: 16.8, color: '#9B59B6' }, { name: 'XOM', vol: 24.5, ret: 18.5, color: '#E67E22' },
+        { name: 'GLD', vol: 12.4, ret: 5.2, color: '#3498DB' }, { name: 'TLT', vol: 14.5, ret: -2.1, color: '#1ABC9C' },
+        { name: 'Portfolio', vol: 15.2, ret: 18.4, isPort: true, color: '#F1C40F' },
+        { name: 'S&P 500 (Piac)', vol: 18.0, ret: 15.0, isMarket: true, color: '#95A5A6' }
+      ];
 
-  const mockReturnBins = [
-    { bin: '< -3%', count: 5 },
-    { bin: '-3% to -2%', count: 12 },
-    { bin: '-2% to -1%', count: 35 },
-    { bin: '-1% to 0%', count: 68 },
-    { bin: '0% to 1%', count: 85 },
-    { bin: '1% to 2%', count: 42 },
-    { bin: '2% to 3%', count: 15 },
-    { bin: '> 3%', count: 6 },
-  ];
+  const mockReturnBins = hasReal
+    ? (() => {
+        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+        const portRets: number[] = [];
+        for (let i = 1; i < minLen; i++) {
+          portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0) * 100);
+        }
+        const binDefs = [
+          { bin: '< -3%', min: -Infinity, max: -3 }, { bin: '-3% to -2%', min: -3, max: -2 },
+          { bin: '-2% to -1%', min: -2, max: -1 }, { bin: '-1% to 0%', min: -1, max: 0 },
+          { bin: '0% to 1%', min: 0, max: 1 }, { bin: '1% to 2%', min: 1, max: 2 },
+          { bin: '2% to 3%', min: 2, max: 3 }, { bin: '> 3%', min: 3, max: Infinity },
+        ];
+        return binDefs.map(b => ({ bin: b.bin, count: portRets.filter(r => r >= b.min && r < b.max).length }));
+      })()
+    : [
+        { bin: '< -3%', count: 5 }, { bin: '-3% to -2%', count: 12 }, { bin: '-2% to -1%', count: 35 },
+        { bin: '-1% to 0%', count: 68 }, { bin: '0% to 1%', count: 85 }, { bin: '1% to 2%', count: 42 },
+        { bin: '2% to 3%', count: 15 }, { bin: '> 3%', count: 6 },
+      ];
 
   const corrTickers = ['AAPL', 'MSFT', 'JPM', 'GS', 'BLK', 'XOM', 'GLD', 'TLT'];
-  const mockCorrelation = [
-    [1.00, 0.78, 0.42, 0.45, 0.51, 0.32, 0.05, -0.21],
-    [0.78, 1.00, 0.38, 0.41, 0.48, 0.28, 0.08, -0.18],
-    [0.42, 0.38, 1.00, 0.85, 0.75, 0.55, -0.10, -0.35],
-    [0.45, 0.41, 0.85, 1.00, 0.72, 0.52, -0.08, -0.32],
-    [0.51, 0.48, 0.75, 0.72, 1.00, 0.45, -0.05, -0.25],
-    [0.32, 0.28, 0.55, 0.52, 0.45, 1.00, 0.15, -0.10],
-    [0.05, 0.08, -0.10, -0.08, -0.05, 0.15, 1.00, 0.45],
-    [-0.21, -0.18, -0.35, -0.32, -0.25, -0.10, 0.45, 1.00],
-  ];
+  const mockCorrelation = hasReal
+    ? ALL_TICKERS.map((t1, i) =>
+        ALL_TICKERS.map((t2, j) => {
+          if (i === j) return 1;
+          const r1 = retsFromPrices(realPrices[t1]).map(x => x.r);
+          const r2 = retsFromPrices(realPrices[t2]).map(x => x.r);
+          return pearsonCorr(r1, r2);
+        })
+      )
+    : [
+        [1.00, 0.78, 0.42, 0.45, 0.51, 0.32, 0.05, -0.21],
+        [0.78, 1.00, 0.38, 0.41, 0.48, 0.28, 0.08, -0.18],
+        [0.42, 0.38, 1.00, 0.85, 0.75, 0.55, -0.10, -0.35],
+        [0.45, 0.41, 0.85, 1.00, 0.72, 0.52, -0.08, -0.32],
+        [0.51, 0.48, 0.75, 0.72, 1.00, 0.45, -0.05, -0.25],
+        [0.32, 0.28, 0.55, 0.52, 0.45, 1.00, 0.15, -0.10],
+        [0.05, 0.08, -0.10, -0.08, -0.05, 0.15, 1.00, 0.45],
+        [-0.21, -0.18, -0.35, -0.32, -0.25, -0.10, 0.45, 1.00],
+      ];
 
-  const marketSummary = [
-    { ticker: 'AAPL', category: 'Tech', year: new Date().getFullYear(), vol: 25.4, ret: 32.1, vsMarket: '+17.1%' },
-    { ticker: 'MSFT', category: 'Tech', year: new Date().getFullYear(), vol: 22.1, ret: 28.5, vsMarket: '+13.5%' },
-    { ticker: 'JPM', category: 'Financials', year: new Date().getFullYear(), vol: 18.5, ret: 12.4, vsMarket: '-2.6%' },
-    { ticker: 'GS', category: 'Financials', year: new Date().getFullYear(), vol: 21.0, ret: 14.2, vsMarket: '-0.8%' },
-    { ticker: 'BLK', category: 'Financials', year: new Date().getFullYear(), vol: 19.2, ret: 16.8, vsMarket: '+1.8%' },
-    { ticker: 'XOM', category: 'Energy', year: new Date().getFullYear(), vol: 24.5, ret: 18.5, vsMarket: '+3.5%' },
-    { ticker: 'GLD', category: 'Commodity', year: new Date().getFullYear(), vol: 12.4, ret: 5.2, vsMarket: '-9.8%' },
-    { ticker: 'TLT', category: 'Bonds', year: new Date().getFullYear(), vol: 14.5, ret: -2.1, vsMarket: '-17.1%' },
-    { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: 15.0, vsMarket: '-' }
-  ];
+  const marketSummary = hasReal
+    ? (() => {
+        const MKT_RET = 15.0;
+        const rows = ALL_TICKERS.map(t => {
+          const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
+          const r = Math.round(ret * 1000) / 10;
+          const v = Math.round(vol * 1000) / 10;
+          const diff = Math.round((r - MKT_RET) * 10) / 10;
+          return { ticker: t, category: TICKER_CATS[t], year: new Date().getFullYear(), vol: v, ret: r, vsMarket: `${diff >= 0 ? '+' : ''}${diff}%` };
+        });
+        return [...rows, { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: MKT_RET, vsMarket: '-' }];
+      })()
+    : [
+        { ticker: 'AAPL', category: 'Tech', year: new Date().getFullYear(), vol: 25.4, ret: 32.1, vsMarket: '+17.1%' },
+        { ticker: 'MSFT', category: 'Tech', year: new Date().getFullYear(), vol: 22.1, ret: 28.5, vsMarket: '+13.5%' },
+        { ticker: 'JPM', category: 'Financials', year: new Date().getFullYear(), vol: 18.5, ret: 12.4, vsMarket: '-2.6%' },
+        { ticker: 'GS', category: 'Financials', year: new Date().getFullYear(), vol: 21.0, ret: 14.2, vsMarket: '-0.8%' },
+        { ticker: 'BLK', category: 'Financials', year: new Date().getFullYear(), vol: 19.2, ret: 16.8, vsMarket: '+1.8%' },
+        { ticker: 'XOM', category: 'Energy', year: new Date().getFullYear(), vol: 24.5, ret: 18.5, vsMarket: '+3.5%' },
+        { ticker: 'GLD', category: 'Commodity', year: new Date().getFullYear(), vol: 12.4, ret: 5.2, vsMarket: '-9.8%' },
+        { ticker: 'TLT', category: 'Bonds', year: new Date().getFullYear(), vol: 14.5, ret: -2.1, vsMarket: '-17.1%' },
+        { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: 15.0, vsMarket: '-' }
+      ];
 
   const getCorrColor = (val: number) => {
     if (val === 1) return 'bg-emerald-500 text-white';
@@ -385,56 +527,75 @@ export default function App() {
     return 'bg-slate-100 text-slate-800';
   };
 
-  const mockRollingVol = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    return {
-      date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }),
-      portfolio: 15 + Math.sin(i / 4) * 3 + Math.random() * 2,
-      benchmark: 18 + Math.sin(i / 5) * 4 + Math.random() * 2,
-    };
-  });
+  const mockRollingVol = hasReal
+    ? (() => {
+        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+        const start = Math.max(0, minLen - 51);
+        const portRets: number[] = [], benchRets: number[] = [];
+        const refDates: string[] = [];
+        for (let i = start + 1; i < minLen; i++) {
+          portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
+          benchRets.push(ALL_TICKERS.reduce((s, t) => s + (1 / 8) * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
+          refDates.push(realPrices['AAPL'][i].date);
+        }
+        const result: { date: string; portfolio: number; benchmark: number }[] = [];
+        for (let i = 20; i < portRets.length; i++) {
+          const ps = portRets.slice(i - 20, i + 1), bs = benchRets.slice(i - 20, i + 1);
+          const pm = ps.reduce((s, r) => s + r, 0) / 21, bm = bs.reduce((s, r) => s + r, 0) / 21;
+          const pv = Math.sqrt(ps.reduce((s, r) => s + (r - pm) ** 2, 0) / 20) * Math.sqrt(252) * 100;
+          const bv = Math.sqrt(bs.reduce((s, r) => s + (r - bm) ** 2, 0) / 20) * Math.sqrt(252) * 100;
+          result.push({ date: new Date(refDates[i]).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: Math.round(pv * 100) / 100, benchmark: Math.round(bv * 100) / 100 });
+        }
+        return result.slice(-30);
+      })()
+    : Array.from({ length: 30 }, (_, i) => {
+        const d = new Date(); d.setDate(d.getDate() - (29 - i));
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: 15 + Math.sin(i / 4) * 3 + Math.random() * 2, benchmark: 18 + Math.sin(i / 5) * 4 + Math.random() * 2 };
+      });
 
-  const mockDrawdown = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    let dd = 0;
-    if (i > 5 && i <= 15) dd = -(i - 5) * 1.2 - Math.random();
-    if (i > 15) dd = -12 + (i - 15) * 1.5 - Math.random();
-    if (dd > 0) dd = 0;
-    return {
-      date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }),
-      drawdown: dd
-    };
-  });
+  const mockDrawdown = hasReal
+    ? (() => {
+        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+        const start = Math.max(0, minLen - 31);
+        let cumRet = 1, maxCum = 1;
+        const result: { date: string; drawdown: number }[] = [];
+        for (let i = start + 1; i < minLen; i++) {
+          const r = ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0);
+          cumRet *= Math.exp(r);
+          if (cumRet > maxCum) maxCum = cumRet;
+          const dd = (cumRet - maxCum) / maxCum * 100;
+          result.push({ date: new Date(realPrices['AAPL'][i].date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), drawdown: Math.round(dd * 100) / 100 });
+        }
+        return result.slice(-30);
+      })()
+    : Array.from({ length: 30 }, (_, i) => {
+        const d = new Date(); d.setDate(d.getDate() - (29 - i));
+        let dd = 0;
+        if (i > 5 && i <= 15) dd = -(i - 5) * 1.2 - Math.random();
+        if (i > 15) dd = -12 + (i - 15) * 1.5 - Math.random();
+        if (dd > 0) dd = 0;
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), drawdown: dd };
+      });
 
-  // ── Dynamic SQL mock data ────────────────────────────────────────────────────
+  // ── Dynamic SQL data (real Yahoo Finance when available, seeded fallback otherwise) ──
   const fmtDate = (d: Date): string => {
     const y = d.getFullYear();
     const mo = String(d.getMonth() + 1).padStart(2, '0');
     const dy = String(d.getDate()).padStart(2, '0');
     return `${y}-${mo}-${dy}`;
   };
-
-  // N-th trading day back from today (1 = yesterday)
   const recentTD = (n: number): string => {
-    const d = new Date();
-    let c = 0;
+    const d = new Date(); let c = 0;
     while (c < n) { d.setDate(d.getDate() - 1); if (d.getDay() !== 0 && d.getDay() !== 6) c++; }
     return fmtDate(d);
   };
-
-  // N-th trading day forward from the 3-year-ago anchor (0 = first trading day 3y ago)
   const oldTD = (n: number): string => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - 3);
+    const d = new Date(); d.setFullYear(d.getFullYear() - 3);
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
     let c = 0;
     while (c < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) c++; }
     return fmtDate(d);
   };
-
-  // Last day of month: N months back (recent) or N months forward from 3y-ago anchor (old)
   const recentME = (n: number): string => {
     const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - n + 1); d.setDate(0); return fmtDate(d);
   };
@@ -442,75 +603,96 @@ export default function App() {
     const d = new Date(); d.setFullYear(d.getFullYear() - 3);
     d.setDate(1); d.setMonth(d.getMonth() + n + 1); d.setDate(0); return fmtDate(d);
   };
-
-  // Deterministic seeded random [0,1) — same date+ticker always → same value
   const srand = (key: string): number => {
     let h = 2166136261;
     for (let i = 0; i < key.length; i++) { h = Math.imul(h ^ key.charCodeAt(i), 16777619) >>> 0; }
     return h / 4294967296;
   };
-
   const SQL_TICKERS = ['AAPL', 'MSFT', 'JPM', 'GS', 'BLK', 'XOM', 'GLD', 'TLT'];
-  // Base prices: [recent (~2026), old (~3y ago)]
   const BASE_P: Record<string, [number, number]> = {
     AAPL: [225, 130], MSFT: [415, 240], JPM: [215, 130],
-    GS:   [510, 305], BLK:  [890, 655], XOM: [112, 110],
-    GLD:  [225, 172], TLT:  [ 88, 105],
+    GS: [510, 305], BLK: [890, 655], XOM: [112, 110], GLD: [225, 172], TLT: [88, 105],
   };
-  const VOL_BASE: Record<string, number> = {
-    AAPL: 0.262, MSFT: 0.241, JPM: 0.198, GS: 0.218, BLK: 0.209, XOM: 0.251, GLD: 0.131, TLT: 0.148,
-  };
-
+  const VOL_BASE: Record<string, number> = { AAPL: 0.262, MSFT: 0.241, JPM: 0.198, GS: 0.218, BLK: 0.209, XOM: 0.251, GLD: 0.131, TLT: 0.148 };
   const genPrice = (date: string, t: string, era: 0 | 1): string =>
     (BASE_P[t][era] * (1 + (srand(date + t + 'p') - 0.5) * 0.015)).toFixed(2);
-
   const genReturn = (date: string, t: string, era: 0 | 1): string => {
-    // simulate a prev-day price by shifting seed slightly
     const p1 = BASE_P[t][era] * (1 + (srand(date + t + 'prev') - 0.5) * 0.015);
     const p2 = parseFloat(genPrice(date, t, era));
     return Math.log(p2 / p1).toFixed(6);
   };
-
   const genVol = (date: string, t: string): string =>
     Math.max(0.08, VOL_BASE[t] + (srand(date + t + 'v') - 0.5) * 0.04).toFixed(4);
 
-  // ASC view — oldest 20 rows (3y ago, date ascending)
-  const [oD0, oD1, oD2] = [oldTD(0), oldTD(1), oldTD(2)];
-  const sqlPricesDataAsc: string[][] = [
-    ...SQL_TICKERS.map(t => [oD0, t, genPrice(oD0, t, 1)]),
-    ...SQL_TICKERS.map(t => [oD1, t, genPrice(oD1, t, 1)]),
-    ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genPrice(oD2, t, 1)]),
-  ];
-  const sqlReturnsDataAsc: string[][] = [
-    ...SQL_TICKERS.map(t => [oD0, t, genReturn(oD0, t, 1)]),
-    ...SQL_TICKERS.map(t => [oD1, t, genReturn(oD1, t, 1)]),
-    ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genReturn(oD2, t, 1)]),
-  ];
-  const [oM0, oM1, oM2] = [oldME(0), oldME(1), oldME(2)];
-  const sqlVolDataAsc: string[][] = [
-    ...SQL_TICKERS.map(t => [oM0, t, genVol(oM0, t)]),
-    ...SQL_TICKERS.map(t => [oM1, t, genVol(oM1, t)]),
-    ...SQL_TICKERS.slice(0, 4).map(t => [oM2, t, genVol(oM2, t)]),
-  ];
+  // Build SQL rows from real prices
+  const buildRealSqlRows = (dates: string[], field: 'price' | 'return' | 'vol'): string[][] => {
+    const rows: string[][] = [];
+    dates.forEach(date => {
+      SQL_TICKERS.forEach(t => {
+        const prices = realPrices[t] || [];
+        const idx = prices.findIndex(p => p.date === date);
+        if (field === 'price' && idx >= 0) {
+          rows.push([date, t, prices[idx].close.toFixed(2)]);
+        } else if (field === 'return' && idx > 0) {
+          rows.push([date, t, Math.log(prices[idx].close / prices[idx - 1].close).toFixed(6)]);
+        } else if (field === 'vol') {
+          const p = prices[idx >= 0 ? idx : prices.length - 1];
+          if (p) rows.push([date, t, genVol(date, t)]);
+        }
+      });
+    });
+    return rows.slice(0, 20);
+  };
 
-  // DESC view — newest 20 rows (recent, date descending)
+  // ASC: oldest dates
+  const [oD0, oD1, oD2] = [oldTD(0), oldTD(1), oldTD(2)];
+  const [oM0, oM1, oM2] = [oldME(0), oldME(1), oldME(2)];
+  const sqlPricesDataAsc: string[][] = hasReal
+    ? (() => {
+        const firstDates = realPrices['AAPL'].slice(0, 3).map(p => p.date);
+        return buildRealSqlRows(firstDates, 'price');
+      })()
+    : [...SQL_TICKERS.map(t => [oD0, t, genPrice(oD0, t, 1)]), ...SQL_TICKERS.map(t => [oD1, t, genPrice(oD1, t, 1)]), ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genPrice(oD2, t, 1)])];
+
+  const sqlReturnsDataAsc: string[][] = hasReal
+    ? (() => {
+        const firstDates = realPrices['AAPL'].slice(1, 4).map(p => p.date);
+        return buildRealSqlRows(firstDates, 'return');
+      })()
+    : [...SQL_TICKERS.map(t => [oD0, t, genReturn(oD0, t, 1)]), ...SQL_TICKERS.map(t => [oD1, t, genReturn(oD1, t, 1)]), ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genReturn(oD2, t, 1)])];
+
+  const sqlVolDataAsc: string[][] = hasReal
+    ? (() => {
+        const firstDates = [realPrices['AAPL'][21]?.date, realPrices['AAPL'][42]?.date, realPrices['AAPL'][63]?.date].filter(Boolean) as string[];
+        return buildRealSqlRows(firstDates, 'vol');
+      })()
+    : [...SQL_TICKERS.map(t => [oM0, t, genVol(oM0, t)]), ...SQL_TICKERS.map(t => [oM1, t, genVol(oM1, t)]), ...SQL_TICKERS.slice(0, 4).map(t => [oM2, t, genVol(oM2, t)])];
+
+  // DESC: newest dates
   const [nD1, nD2, nD3] = [recentTD(1), recentTD(2), recentTD(3)];
-  const sqlPricesDataDesc: string[][] = [
-    ...SQL_TICKERS.map(t => [nD1, t, genPrice(nD1, t, 0)]),
-    ...SQL_TICKERS.map(t => [nD2, t, genPrice(nD2, t, 0)]),
-    ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genPrice(nD3, t, 0)]),
-  ];
-  const sqlReturnsDataDesc: string[][] = [
-    ...SQL_TICKERS.map(t => [nD1, t, genReturn(nD1, t, 0)]),
-    ...SQL_TICKERS.map(t => [nD2, t, genReturn(nD2, t, 0)]),
-    ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genReturn(nD3, t, 0)]),
-  ];
   const [nM1, nM2, nM3] = [recentME(1), recentME(2), recentME(3)];
-  const sqlVolDataDesc: string[][] = [
-    ...SQL_TICKERS.map(t => [nM1, t, genVol(nM1, t)]),
-    ...SQL_TICKERS.map(t => [nM2, t, genVol(nM2, t)]),
-    ...SQL_TICKERS.slice(0, 4).map(t => [nM3, t, genVol(nM3, t)]),
-  ];
+  const sqlPricesDataDesc: string[][] = hasReal
+    ? (() => {
+        const len = realPrices['AAPL'].length;
+        const lastDates = realPrices['AAPL'].slice(Math.max(0, len - 3)).map(p => p.date).reverse();
+        return buildRealSqlRows(lastDates, 'price');
+      })()
+    : [...SQL_TICKERS.map(t => [nD1, t, genPrice(nD1, t, 0)]), ...SQL_TICKERS.map(t => [nD2, t, genPrice(nD2, t, 0)]), ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genPrice(nD3, t, 0)])];
+
+  const sqlReturnsDataDesc: string[][] = hasReal
+    ? (() => {
+        const len = realPrices['AAPL'].length;
+        const lastDates = realPrices['AAPL'].slice(Math.max(1, len - 3)).map(p => p.date).reverse();
+        return buildRealSqlRows(lastDates, 'return');
+      })()
+    : [...SQL_TICKERS.map(t => [nD1, t, genReturn(nD1, t, 0)]), ...SQL_TICKERS.map(t => [nD2, t, genReturn(nD2, t, 0)]), ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genReturn(nD3, t, 0)])];
+
+  const sqlVolDataDesc: string[][] = hasReal
+    ? (() => {
+        const lastDates = [nM1, nM2, nM3];
+        return buildRealSqlRows(lastDates, 'vol');
+      })()
+    : [...SQL_TICKERS.map(t => [nM1, t, genVol(nM1, t)]), ...SQL_TICKERS.map(t => [nM2, t, genVol(nM2, t)]), ...SQL_TICKERS.slice(0, 4).map(t => [nM3, t, genVol(nM3, t)])];
 
   const handleRunCode = () => {
     setActiveTab('output');
