@@ -247,7 +247,7 @@ export default function App() {
   const [runState, setRunState] = useState<'idle' | 'running' | 'done'>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'code' | 'output' | 'sql'>('code');
-  const [timeFilter, setTimeFilter] = useState<'1M' | '1Y' | '5Y'>('1Y');
+  const [timeFilter, setTimeFilter] = useState<'1M' | '1Y' | '3Y'>('1Y');
   const [dashboardPage, setDashboardPage] = useState<number>(1);
   const [sqlTable, setSqlTable] = useState<'prices' | 'daily_returns' | 'rolling_volatility'>('prices');
   const [sqlSortDesc, setSqlSortDesc] = useState(false);
@@ -363,21 +363,30 @@ export default function App() {
         { name: 'GLD', sharpe: 0.45 }, { name: 'TLT', sharpe: -0.15 },
       ].sort((a, b) => a.sharpe - b.sharpe);
 
-  const getMockReturns = (filter: '1M' | '1Y' | '5Y') => {
+  const getMockReturns = (filter: '1M' | '1Y' | '3Y') => {
     if (hasReal && (realPrices['AAPL']?.length ?? 0) > 2) {
       const base = realPrices['AAPL'];
       const endMs = new Date(base[base.length - 1].date).getTime();
       let startMs: number;
       if (filter === '1M') startMs = endMs - 31 * 86400000;
       else if (filter === '1Y') startMs = endMs - 366 * 86400000;
-      else startMs = endMs - 5 * 366 * 86400000;
+      else startMs = 0; // 3Y = all available data (3 years fetched)
 
       let allDates = base.filter(p => new Date(p.date).getTime() >= startMs).map(p => p.date);
-      if (filter === '1Y' && allDates.length > 52) {
-        const step = Math.floor(allDates.length / 52);
+
+      // 1M → weekly: keep every 5th trading day (~1 point/week)
+      if (filter === '1M' && allDates.length > 5) {
+        const step = 5;
         allDates = allDates.filter((_, i) => i % step === 0).concat(allDates[allDates.length - 1]);
-      } else if (filter === '5Y' && allDates.length > 60) {
-        const step = Math.floor(allDates.length / 60);
+      }
+      // 1Y → monthly: keep every ~21st trading day
+      if (filter === '1Y' && allDates.length > 12) {
+        const step = Math.floor(allDates.length / 12);
+        allDates = allDates.filter((_, i) => i % step === 0).concat(allDates[allDates.length - 1]);
+      }
+      // 3Y → quarterly: keep every ~63rd trading day
+      if (filter === '3Y' && allDates.length > 12) {
+        const step = Math.floor(allDates.length / 12);
         allDates = allDates.filter((_, i) => i % step === 0).concat(allDates[allDates.length - 1]);
       }
 
@@ -398,27 +407,27 @@ export default function App() {
         const label = filter === '1M'
           ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' })
           : filter === '1Y'
-          ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short' })
-          : date.slice(0, 4);
+          ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: '2-digit' })
+          : new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: 'numeric' });
         return { date: label, portfolio: Math.round(port * 100) / 100, benchmark: Math.round(bench * 100) / 100 };
       });
     }
     // fallback
     const today = new Date();
     if (filter === '1M') {
-      return Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(today); d.setDate(today.getDate() - (29 - i));
-        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: 100 + (i * 0.1) + (Math.random() * 2 - 1), benchmark: 100 + (i * 0.08) + (Math.random() * 1.5 - 0.75) };
+      return Array.from({ length: 5 }, (_, i) => {
+        const d = new Date(today); d.setDate(today.getDate() - (4 - i) * 7);
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: 100 + (i * 0.5) + (Math.random() * 2 - 1), benchmark: 100 + (i * 0.4) + (Math.random() * 1.5 - 0.75) };
       });
     } else if (filter === '1Y') {
       return Array.from({ length: 12 }, (_, i) => {
         const d = new Date(today); d.setMonth(today.getMonth() - (11 - i));
-        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short' }), portfolio: 100 + (i * 1.5) + (Math.random() * 5 - 2.5), benchmark: 100 + (i * 1.2) + (Math.random() * 4 - 2) };
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: '2-digit' }), portfolio: 100 + (i * 1.5) + (Math.random() * 5 - 2.5), benchmark: 100 + (i * 1.2) + (Math.random() * 4 - 2) };
       });
     } else {
-      return Array.from({ length: 5 }, (_, i) => {
-        const year = today.getFullYear() - (4 - i);
-        return { date: `${year}`, portfolio: 100 + (i * 15) + (Math.random() * 20 - 10), benchmark: 100 + (i * 12) + (Math.random() * 15 - 7.5) };
+      return Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(today); d.setMonth(today.getMonth() - (35 - i * 3));
+        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: 'numeric' }), portfolio: 100 + (i * 5) + (Math.random() * 10 - 5), benchmark: 100 + (i * 4) + (Math.random() * 8 - 4) };
       });
     }
   };
@@ -1321,19 +1330,19 @@ export default function App() {
                                             onClick={() => setTimeFilter('1M')}
                                             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${timeFilter === '1M' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                                           >
-                                            {lang === 'hu' ? '1M (Napok)' : '1M (Days)'}
+                                            {lang === 'hu' ? '1M (Hetek)' : '1M (Weekly)'}
                                           </button>
                                           <button
                                             onClick={() => setTimeFilter('1Y')}
                                             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${timeFilter === '1Y' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                                           >
-                                            {lang === 'hu' ? '1Y (Hónapok)' : '1Y (Months)'}
+                                            {lang === 'hu' ? '1Y (Hónapok)' : '1Y (Monthly)'}
                                           </button>
                                           <button
-                                            onClick={() => setTimeFilter('5Y')}
-                                            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${timeFilter === '5Y' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                                            onClick={() => setTimeFilter('3Y')}
+                                            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${timeFilter === '3Y' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                                           >
-                                            {lang === 'hu' ? '5Y (Évek)' : '5Y (Years)'}
+                                            {lang === 'hu' ? '3Y (Negyedévek)' : '3Y (Quarterly)'}
                                           </button>
                                         </div>
                                       </div>
