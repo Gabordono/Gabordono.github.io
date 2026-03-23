@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   BarChart3,
@@ -51,6 +51,7 @@ import {
   LabelList
 } from 'recharts';
 import { portfolioRiskCode, portfolioRiskCodeSnippet, portfolioRiskSQLCode } from './data/portfolioRiskCode';
+import { creditFraudCode, creditFraudSnippet } from './data/creditFraudDetection';
 
 const content = {
   hu: {
@@ -111,6 +112,7 @@ const content = {
       subtitle: 'Konkrét üzleti problémákra adott adatalapú megoldásaim.',
       items: [
         {
+          id: 1,
           title: 'Portfólió Kockázatkezelési Dashboard',
           description: 'Interaktív Power BI dashboard befektetési portfóliók kockázatának (VaR, Sharpe-mutató) és hozamának valós idejű nyomon követésére.',
           tags: ['Power BI', 'Python', 'SQL'],
@@ -134,6 +136,14 @@ const content = {
           description: 'Termékvonalak profitabilitásának mélyreható elemzése (Time Series Analysis), amely rámutatott a legkevésbé jövedelmező szegmensekre.',
           tags: ['Python', 'Pandas', 'Adatvizualizáció'],
           metrics: '+8% profitmarzs növekedés',
+        },
+        {
+          id: 2,
+          title: 'Hitelezési Kockázat & Csalásdetektálási Modell',
+          description: 'Kaggle nyilvános banki adatsor alapján Random Forest és Logisztikus Regresszió modell Pythonban. SMOTE technikával kezeli az erősen imbalanced adatot. AUC: 0.97, Fraud Recall: 94%.',
+          tags: ['Python', 'Scikit-learn', 'Random Forest', 'Kaggle'],
+          metrics: 'AUC: 0.97 | Recall: 94%',
+          code: creditFraudCode
         }
       ]
     },
@@ -202,6 +212,7 @@ const content = {
       subtitle: 'Data-driven solutions to specific business problems.',
       items: [
         {
+          id: 1,
           title: 'Portfolio Risk Management Dashboard',
           description: 'Interactive Power BI dashboard for real-time tracking of investment portfolio risk (VaR, Sharpe ratio) and return performance.',
           tags: ['Power BI', 'Python', 'SQL'],
@@ -225,6 +236,14 @@ const content = {
           description: 'In-depth profitability analysis of product lines (Time Series Analysis), highlighting the least profitable segments.',
           tags: ['Python', 'Pandas', 'Data Visualization'],
           metrics: '+8% profit margin increase',
+        },
+        {
+          id: 2,
+          title: 'Credit Risk & Fraud Detection Model (ML)',
+          description: 'Built a Random Forest & Logistic Regression fraud detection model in Python using the public Kaggle Credit Card Fraud dataset (284k transactions). Handles severe class imbalance with SMOTE. AUC: 0.97, Fraud Recall: 94%.',
+          tags: ['Python', 'Scikit-learn', 'Random Forest', 'Kaggle'],
+          metrics: 'AUC: 0.97 | Recall: 94%',
+          code: creditFraudCode
         }
       ]
     },
@@ -246,12 +265,27 @@ export default function App() {
   // Code Execution State
   const [runState, setRunState] = useState<'idle' | 'running' | 'done'>('idle');
   const [logs, setLogs] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'code' | 'output' | 'sql'>('code');
+  const [activeTab, setActiveTab] = useState<'code' | 'output' | 'sql'>('output');
   const [timeFilter, setTimeFilter] = useState<'1M' | '1Y' | '3Y'>('1Y');
   const [dashboardPage, setDashboardPage] = useState<number>(1);
   const [sqlTable, setSqlTable] = useState<'prices' | 'daily_returns' | 'rolling_volatility'>('prices');
   const [sqlSortDesc, setSqlSortDesc] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const logEndRef = useRef<HTMLDivElement>(null);
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  // auto-scroll terminal as logs come in
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  // scroll to dashboard when run completes
+  useEffect(() => {
+    if (runState === 'done') {
+      setTimeout(() => dashboardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+  }, [runState]);
 
   // ── Real Yahoo Finance data ────────────────────────────────────────────────
   const [realPrices, setRealPrices] = useState<Record<string, PricePoint[]>>({});
@@ -353,46 +387,46 @@ export default function App() {
   // ── Portfolio-level KPI metrics ───────────────────────────────────────────────
   const portKPI = hasReal
     ? (() => {
-        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
-        const portRets: number[] = [];
-        for (let i = 1; i < minLen; i++) {
-          portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
-        }
-        const n = portRets.length;
-        const mean = portRets.reduce((s, r) => s + r, 0) / n;
-        const variance = portRets.reduce((s, r) => s + (r - mean) ** 2, 0) / (n - 1);
-        const ret = mean * 252;
-        const vol = Math.sqrt(variance * 252);
-        const sharpe = vol > 0 ? (ret - RFREE) / vol : 0;
-        let cum = 1, peak = 1, maxDD = 0;
-        for (const r of portRets) { cum *= Math.exp(r); if (cum > peak) peak = cum; const dd = (cum - peak) / peak; if (dd < maxDD) maxDD = dd; }
-        const sorted = [...portRets].sort((a, b) => a - b);
-        const varIdx = Math.max(1, Math.floor(0.05 * n));
-        const var95 = sorted[varIdx] * 100;
-        const cvar95 = sorted.slice(0, varIdx).reduce((s, r) => s + r, 0) / varIdx * 100;
-        return {
-          ret: Math.round(ret * 1000) / 10,
-          vol: Math.round(vol * 1000) / 10,
-          sharpe: Math.round(sharpe * 100) / 100,
-          maxDD: Math.round(maxDD * 1000) / 10,
-          var95: Math.round(var95 * 100) / 100,
-          cvar95: Math.round(cvar95 * 100) / 100,
-        };
-      })()
+      const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+      const portRets: number[] = [];
+      for (let i = 1; i < minLen; i++) {
+        portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
+      }
+      const n = portRets.length;
+      const mean = portRets.reduce((s, r) => s + r, 0) / n;
+      const variance = portRets.reduce((s, r) => s + (r - mean) ** 2, 0) / (n - 1);
+      const ret = mean * 252;
+      const vol = Math.sqrt(variance * 252);
+      const sharpe = vol > 0 ? (ret - RFREE) / vol : 0;
+      let cum = 1, peak = 1, maxDD = 0;
+      for (const r of portRets) { cum *= Math.exp(r); if (cum > peak) peak = cum; const dd = (cum - peak) / peak; if (dd < maxDD) maxDD = dd; }
+      const sorted = [...portRets].sort((a, b) => a - b);
+      const varIdx = Math.max(1, Math.floor(0.05 * n));
+      const var95 = sorted[varIdx] * 100;
+      const cvar95 = sorted.slice(0, varIdx).reduce((s, r) => s + r, 0) / varIdx * 100;
+      return {
+        ret: Math.round(ret * 1000) / 10,
+        vol: Math.round(vol * 1000) / 10,
+        sharpe: Math.round(sharpe * 100) / 100,
+        maxDD: Math.round(maxDD * 1000) / 10,
+        var95: Math.round(var95 * 100) / 100,
+        cvar95: Math.round(cvar95 * 100) / 100,
+      };
+    })()
     : { ret: 18.4, vol: 15.2, sharpe: 1.21, maxDD: -12.4, var95: -2.1, cvar95: -3.4 };
 
   // ── Derived chart data (real data when loaded, mock fallback otherwise) ────────
   const mockSharpe = hasReal
     ? ALL_TICKERS.map(t => {
-        const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
-        return { name: t, sharpe: vol > 0 ? Math.round((ret - RFREE) / vol * 1000) / 1000 : 0 };
-      }).sort((a, b) => a.sharpe - b.sharpe)
+      const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
+      return { name: t, sharpe: vol > 0 ? Math.round((ret - RFREE) / vol * 1000) / 1000 : 0 };
+    }).sort((a, b) => a.sharpe - b.sharpe)
     : [
-        { name: 'AAPL', sharpe: 1.12 }, { name: 'MSFT', sharpe: 1.05 },
-        { name: 'JPM', sharpe: 0.85 }, { name: 'GS', sharpe: 0.72 },
-        { name: 'BLK', sharpe: 0.91 }, { name: 'XOM', sharpe: 0.65 },
-        { name: 'GLD', sharpe: 0.45 }, { name: 'TLT', sharpe: -0.15 },
-      ].sort((a, b) => a.sharpe - b.sharpe);
+      { name: 'AAPL', sharpe: 1.12 }, { name: 'MSFT', sharpe: 1.05 },
+      { name: 'JPM', sharpe: 0.85 }, { name: 'GS', sharpe: 0.72 },
+      { name: 'BLK', sharpe: 0.91 }, { name: 'XOM', sharpe: 0.65 },
+      { name: 'GLD', sharpe: 0.45 }, { name: 'TLT', sharpe: -0.15 },
+    ].sort((a, b) => a.sharpe - b.sharpe);
 
   const getMockReturns = (filter: '1M' | '1Y' | '3Y') => {
     if (hasReal && (realPrices['AAPL']?.length ?? 0) > 2) {
@@ -438,8 +472,8 @@ export default function App() {
         const label = filter === '1M'
           ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' })
           : filter === '1Y'
-          ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: '2-digit' })
-          : new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: 'numeric' });
+            ? new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: '2-digit' })
+            : new Date(date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', year: 'numeric' });
         return { date: label, portfolio: Math.round(port * 100) / 100, benchmark: Math.round(bench * 100) / 100 };
       });
     }
@@ -467,95 +501,95 @@ export default function App() {
 
   const mockRiskReturn = hasReal
     ? (() => {
-        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
-        const portRets: { r: number }[] = [];
-        for (let i = 1; i < minLen; i++) {
-          portRets.push({ r: ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0) });
-        }
-        const { ret: pRet, vol: pVol } = annMetrics(portRets);
-        return [
-          ...ALL_TICKERS.map(t => {
-            const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
-            return { name: t, vol: Math.round(vol * 1000) / 10, ret: Math.round(ret * 1000) / 10, color: TICKER_COLORS[t] };
-          }),
-          { name: 'Portfolio', vol: Math.round(pVol * 1000) / 10, ret: Math.round(pRet * 1000) / 10, isPort: true, color: '#F1C40F' },
-          { name: 'S&P 500 (Piac)', vol: 18.0, ret: 15.0, isMarket: true, color: '#95A5A6' }
-        ];
-      })()
-    : [
-        { name: 'AAPL', vol: 25.4, ret: 32.1, color: '#2CA6A4' }, { name: 'MSFT', vol: 22.1, ret: 28.5, color: '#C9A84C' },
-        { name: 'JPM', vol: 18.5, ret: 12.4, color: '#E05A4E' }, { name: 'GS', vol: 21.0, ret: 14.2, color: '#4CAF7D' },
-        { name: 'BLK', vol: 19.2, ret: 16.8, color: '#9B59B6' }, { name: 'XOM', vol: 24.5, ret: 18.5, color: '#E67E22' },
-        { name: 'GLD', vol: 12.4, ret: 5.2, color: '#3498DB' }, { name: 'TLT', vol: 14.5, ret: -2.1, color: '#1ABC9C' },
-        { name: 'Portfolio', vol: 15.2, ret: 18.4, isPort: true, color: '#F1C40F' },
+      const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+      const portRets: { r: number }[] = [];
+      for (let i = 1; i < minLen; i++) {
+        portRets.push({ r: ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0) });
+      }
+      const { ret: pRet, vol: pVol } = annMetrics(portRets);
+      return [
+        ...ALL_TICKERS.map(t => {
+          const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
+          return { name: t, vol: Math.round(vol * 1000) / 10, ret: Math.round(ret * 1000) / 10, color: TICKER_COLORS[t] };
+        }),
+        { name: 'Portfolio', vol: Math.round(pVol * 1000) / 10, ret: Math.round(pRet * 1000) / 10, isPort: true, color: '#F1C40F' },
         { name: 'S&P 500 (Piac)', vol: 18.0, ret: 15.0, isMarket: true, color: '#95A5A6' }
       ];
+    })()
+    : [
+      { name: 'AAPL', vol: 25.4, ret: 32.1, color: '#2CA6A4' }, { name: 'MSFT', vol: 22.1, ret: 28.5, color: '#C9A84C' },
+      { name: 'JPM', vol: 18.5, ret: 12.4, color: '#E05A4E' }, { name: 'GS', vol: 21.0, ret: 14.2, color: '#4CAF7D' },
+      { name: 'BLK', vol: 19.2, ret: 16.8, color: '#9B59B6' }, { name: 'XOM', vol: 24.5, ret: 18.5, color: '#E67E22' },
+      { name: 'GLD', vol: 12.4, ret: 5.2, color: '#3498DB' }, { name: 'TLT', vol: 14.5, ret: -2.1, color: '#1ABC9C' },
+      { name: 'Portfolio', vol: 15.2, ret: 18.4, isPort: true, color: '#F1C40F' },
+      { name: 'S&P 500 (Piac)', vol: 18.0, ret: 15.0, isMarket: true, color: '#95A5A6' }
+    ];
 
   const mockReturnBins = hasReal
     ? (() => {
-        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
-        const portRets: number[] = [];
-        for (let i = 1; i < minLen; i++) {
-          portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0) * 100);
-        }
-        const binDefs = [
-          { bin: '< -3%', min: -Infinity, max: -3 }, { bin: '-3% to -2%', min: -3, max: -2 },
-          { bin: '-2% to -1%', min: -2, max: -1 }, { bin: '-1% to 0%', min: -1, max: 0 },
-          { bin: '0% to 1%', min: 0, max: 1 }, { bin: '1% to 2%', min: 1, max: 2 },
-          { bin: '2% to 3%', min: 2, max: 3 }, { bin: '> 3%', min: 3, max: Infinity },
-        ];
-        return binDefs.map(b => ({ bin: b.bin, count: portRets.filter(r => r >= b.min && r < b.max).length }));
-      })()
-    : [
-        { bin: '< -3%', count: 5 }, { bin: '-3% to -2%', count: 12 }, { bin: '-2% to -1%', count: 35 },
-        { bin: '-1% to 0%', count: 68 }, { bin: '0% to 1%', count: 85 }, { bin: '1% to 2%', count: 42 },
-        { bin: '2% to 3%', count: 15 }, { bin: '> 3%', count: 6 },
+      const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+      const portRets: number[] = [];
+      for (let i = 1; i < minLen; i++) {
+        portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0) * 100);
+      }
+      const binDefs = [
+        { bin: '< -3%', min: -Infinity, max: -3 }, { bin: '-3% to -2%', min: -3, max: -2 },
+        { bin: '-2% to -1%', min: -2, max: -1 }, { bin: '-1% to 0%', min: -1, max: 0 },
+        { bin: '0% to 1%', min: 0, max: 1 }, { bin: '1% to 2%', min: 1, max: 2 },
+        { bin: '2% to 3%', min: 2, max: 3 }, { bin: '> 3%', min: 3, max: Infinity },
       ];
+      return binDefs.map(b => ({ bin: b.bin, count: portRets.filter(r => r >= b.min && r < b.max).length }));
+    })()
+    : [
+      { bin: '< -3%', count: 5 }, { bin: '-3% to -2%', count: 12 }, { bin: '-2% to -1%', count: 35 },
+      { bin: '-1% to 0%', count: 68 }, { bin: '0% to 1%', count: 85 }, { bin: '1% to 2%', count: 42 },
+      { bin: '2% to 3%', count: 15 }, { bin: '> 3%', count: 6 },
+    ];
 
   const corrTickers = ['AAPL', 'MSFT', 'JPM', 'GS', 'BLK', 'XOM', 'GLD', 'TLT'];
   const mockCorrelation = hasReal
     ? ALL_TICKERS.map((t1, i) =>
-        ALL_TICKERS.map((t2, j) => {
-          if (i === j) return 1;
-          const r1 = retsFromPrices(realPrices[t1]).map(x => x.r);
-          const r2 = retsFromPrices(realPrices[t2]).map(x => x.r);
-          return pearsonCorr(r1, r2);
-        })
-      )
+      ALL_TICKERS.map((t2, j) => {
+        if (i === j) return 1;
+        const r1 = retsFromPrices(realPrices[t1]).map(x => x.r);
+        const r2 = retsFromPrices(realPrices[t2]).map(x => x.r);
+        return pearsonCorr(r1, r2);
+      })
+    )
     : [
-        [1.00, 0.78, 0.42, 0.45, 0.51, 0.32, 0.05, -0.21],
-        [0.78, 1.00, 0.38, 0.41, 0.48, 0.28, 0.08, -0.18],
-        [0.42, 0.38, 1.00, 0.85, 0.75, 0.55, -0.10, -0.35],
-        [0.45, 0.41, 0.85, 1.00, 0.72, 0.52, -0.08, -0.32],
-        [0.51, 0.48, 0.75, 0.72, 1.00, 0.45, -0.05, -0.25],
-        [0.32, 0.28, 0.55, 0.52, 0.45, 1.00, 0.15, -0.10],
-        [0.05, 0.08, -0.10, -0.08, -0.05, 0.15, 1.00, 0.45],
-        [-0.21, -0.18, -0.35, -0.32, -0.25, -0.10, 0.45, 1.00],
-      ];
+      [1.00, 0.78, 0.42, 0.45, 0.51, 0.32, 0.05, -0.21],
+      [0.78, 1.00, 0.38, 0.41, 0.48, 0.28, 0.08, -0.18],
+      [0.42, 0.38, 1.00, 0.85, 0.75, 0.55, -0.10, -0.35],
+      [0.45, 0.41, 0.85, 1.00, 0.72, 0.52, -0.08, -0.32],
+      [0.51, 0.48, 0.75, 0.72, 1.00, 0.45, -0.05, -0.25],
+      [0.32, 0.28, 0.55, 0.52, 0.45, 1.00, 0.15, -0.10],
+      [0.05, 0.08, -0.10, -0.08, -0.05, 0.15, 1.00, 0.45],
+      [-0.21, -0.18, -0.35, -0.32, -0.25, -0.10, 0.45, 1.00],
+    ];
 
   const marketSummary = hasReal
     ? (() => {
-        const MKT_RET = 15.0;
-        const rows = ALL_TICKERS.map(t => {
-          const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
-          const r = Math.round(ret * 1000) / 10;
-          const v = Math.round(vol * 1000) / 10;
-          const diff = Math.round((r - MKT_RET) * 10) / 10;
-          return { ticker: t, category: TICKER_CATS[t], year: new Date().getFullYear(), vol: v, ret: r, vsMarket: `${diff >= 0 ? '+' : ''}${diff}%` };
-        });
-        return [...rows, { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: MKT_RET, vsMarket: '-' }];
-      })()
+      const MKT_RET = 15.0;
+      const rows = ALL_TICKERS.map(t => {
+        const { ret, vol } = annMetrics(retsFromPrices(realPrices[t]));
+        const r = Math.round(ret * 1000) / 10;
+        const v = Math.round(vol * 1000) / 10;
+        const diff = Math.round((r - MKT_RET) * 10) / 10;
+        return { ticker: t, category: TICKER_CATS[t], year: new Date().getFullYear(), vol: v, ret: r, vsMarket: `${diff >= 0 ? '+' : ''}${diff}%` };
+      });
+      return [...rows, { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: MKT_RET, vsMarket: '-' }];
+    })()
     : [
-        { ticker: 'AAPL', category: 'Tech', year: new Date().getFullYear(), vol: 25.4, ret: 32.1, vsMarket: '+17.1%' },
-        { ticker: 'MSFT', category: 'Tech', year: new Date().getFullYear(), vol: 22.1, ret: 28.5, vsMarket: '+13.5%' },
-        { ticker: 'JPM', category: 'Financials', year: new Date().getFullYear(), vol: 18.5, ret: 12.4, vsMarket: '-2.6%' },
-        { ticker: 'GS', category: 'Financials', year: new Date().getFullYear(), vol: 21.0, ret: 14.2, vsMarket: '-0.8%' },
-        { ticker: 'BLK', category: 'Financials', year: new Date().getFullYear(), vol: 19.2, ret: 16.8, vsMarket: '+1.8%' },
-        { ticker: 'XOM', category: 'Energy', year: new Date().getFullYear(), vol: 24.5, ret: 18.5, vsMarket: '+3.5%' },
-        { ticker: 'GLD', category: 'Commodity', year: new Date().getFullYear(), vol: 12.4, ret: 5.2, vsMarket: '-9.8%' },
-        { ticker: 'TLT', category: 'Bonds', year: new Date().getFullYear(), vol: 14.5, ret: -2.1, vsMarket: '-17.1%' },
-        { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: 15.0, vsMarket: '-' }
-      ];
+      { ticker: 'AAPL', category: 'Tech', year: new Date().getFullYear(), vol: 25.4, ret: 32.1, vsMarket: '+17.1%' },
+      { ticker: 'MSFT', category: 'Tech', year: new Date().getFullYear(), vol: 22.1, ret: 28.5, vsMarket: '+13.5%' },
+      { ticker: 'JPM', category: 'Financials', year: new Date().getFullYear(), vol: 18.5, ret: 12.4, vsMarket: '-2.6%' },
+      { ticker: 'GS', category: 'Financials', year: new Date().getFullYear(), vol: 21.0, ret: 14.2, vsMarket: '-0.8%' },
+      { ticker: 'BLK', category: 'Financials', year: new Date().getFullYear(), vol: 19.2, ret: 16.8, vsMarket: '+1.8%' },
+      { ticker: 'XOM', category: 'Energy', year: new Date().getFullYear(), vol: 24.5, ret: 18.5, vsMarket: '+3.5%' },
+      { ticker: 'GLD', category: 'Commodity', year: new Date().getFullYear(), vol: 12.4, ret: 5.2, vsMarket: '-9.8%' },
+      { ticker: 'TLT', category: 'Bonds', year: new Date().getFullYear(), vol: 14.5, ret: -2.1, vsMarket: '-17.1%' },
+      { ticker: 'S&P 500', category: 'Market (Piac)', year: new Date().getFullYear(), vol: 18.0, ret: 15.0, vsMarket: '-' }
+    ];
 
   const getCorrColor = (val: number) => {
     if (val === 1) return 'bg-emerald-500 text-white';
@@ -569,53 +603,53 @@ export default function App() {
 
   const mockRollingVol = hasReal
     ? (() => {
-        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
-        const start = Math.max(0, minLen - 51);
-        const portRets: number[] = [], benchRets: number[] = [];
-        const refDates: string[] = [];
-        for (let i = start + 1; i < minLen; i++) {
-          portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
-          benchRets.push(ALL_TICKERS.reduce((s, t) => s + (1 / 8) * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
-          refDates.push(realPrices['AAPL'][i].date);
-        }
-        const result: { date: string; portfolio: number; benchmark: number }[] = [];
-        for (let i = 20; i < portRets.length; i++) {
-          const ps = portRets.slice(i - 20, i + 1), bs = benchRets.slice(i - 20, i + 1);
-          const pm = ps.reduce((s, r) => s + r, 0) / 21, bm = bs.reduce((s, r) => s + r, 0) / 21;
-          const pv = Math.sqrt(ps.reduce((s, r) => s + (r - pm) ** 2, 0) / 20) * Math.sqrt(252) * 100;
-          const bv = Math.sqrt(bs.reduce((s, r) => s + (r - bm) ** 2, 0) / 20) * Math.sqrt(252) * 100;
-          result.push({ date: new Date(refDates[i]).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: Math.round(pv * 100) / 100, benchmark: Math.round(bv * 100) / 100 });
-        }
-        return result.slice(-30);
-      })()
+      const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+      const start = Math.max(0, minLen - 51);
+      const portRets: number[] = [], benchRets: number[] = [];
+      const refDates: string[] = [];
+      for (let i = start + 1; i < minLen; i++) {
+        portRets.push(ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
+        benchRets.push(ALL_TICKERS.reduce((s, t) => s + (1 / 8) * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0));
+        refDates.push(realPrices['AAPL'][i].date);
+      }
+      const result: { date: string; portfolio: number; benchmark: number }[] = [];
+      for (let i = 20; i < portRets.length; i++) {
+        const ps = portRets.slice(i - 20, i + 1), bs = benchRets.slice(i - 20, i + 1);
+        const pm = ps.reduce((s, r) => s + r, 0) / 21, bm = bs.reduce((s, r) => s + r, 0) / 21;
+        const pv = Math.sqrt(ps.reduce((s, r) => s + (r - pm) ** 2, 0) / 20) * Math.sqrt(252) * 100;
+        const bv = Math.sqrt(bs.reduce((s, r) => s + (r - bm) ** 2, 0) / 20) * Math.sqrt(252) * 100;
+        result.push({ date: new Date(refDates[i]).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: Math.round(pv * 100) / 100, benchmark: Math.round(bv * 100) / 100 });
+      }
+      return result.slice(-30);
+    })()
     : Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - (29 - i));
-        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: 15 + Math.sin(i / 4) * 3 + Math.random() * 2, benchmark: 18 + Math.sin(i / 5) * 4 + Math.random() * 2 };
-      });
+      const d = new Date(); d.setDate(d.getDate() - (29 - i));
+      return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), portfolio: 15 + Math.sin(i / 4) * 3 + Math.random() * 2, benchmark: 18 + Math.sin(i / 5) * 4 + Math.random() * 2 };
+    });
 
   const mockDrawdown = hasReal
     ? (() => {
-        const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
-        const start = Math.max(0, minLen - 31);
-        let cumRet = 1, maxCum = 1;
-        const result: { date: string; drawdown: number }[] = [];
-        for (let i = start + 1; i < minLen; i++) {
-          const r = ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0);
-          cumRet *= Math.exp(r);
-          if (cumRet > maxCum) maxCum = cumRet;
-          const dd = (cumRet - maxCum) / maxCum * 100;
-          result.push({ date: new Date(realPrices['AAPL'][i].date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), drawdown: Math.round(dd * 100) / 100 });
-        }
-        return result.slice(-30);
-      })()
+      const minLen = Math.min(...ALL_TICKERS.map(t => realPrices[t].length));
+      const start = Math.max(0, minLen - 31);
+      let cumRet = 1, maxCum = 1;
+      const result: { date: string; drawdown: number }[] = [];
+      for (let i = start + 1; i < minLen; i++) {
+        const r = ALL_TICKERS.reduce((s, t) => s + PORTFOLIO_W[t] * Math.log(realPrices[t][i].close / realPrices[t][i - 1].close), 0);
+        cumRet *= Math.exp(r);
+        if (cumRet > maxCum) maxCum = cumRet;
+        const dd = (cumRet - maxCum) / maxCum * 100;
+        result.push({ date: new Date(realPrices['AAPL'][i].date).toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), drawdown: Math.round(dd * 100) / 100 });
+      }
+      return result.slice(-30);
+    })()
     : Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - (29 - i));
-        let dd = 0;
-        if (i > 5 && i <= 15) dd = -(i - 5) * 1.2 - Math.random();
-        if (i > 15) dd = -12 + (i - 15) * 1.5 - Math.random();
-        if (dd > 0) dd = 0;
-        return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), drawdown: dd };
-      });
+      const d = new Date(); d.setDate(d.getDate() - (29 - i));
+      let dd = 0;
+      if (i > 5 && i <= 15) dd = -(i - 5) * 1.2 - Math.random();
+      if (i > 15) dd = -12 + (i - 15) * 1.5 - Math.random();
+      if (dd > 0) dd = 0;
+      return { date: d.toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-US', { month: 'short', day: 'numeric' }), drawdown: dd };
+    });
 
   // ── Dynamic SQL data (real Yahoo Finance when available, seeded fallback otherwise) ──
   const fmtDate = (d: Date): string => {
@@ -689,23 +723,23 @@ export default function App() {
   const [oM0, oM1, oM2] = [oldME(0), oldME(1), oldME(2)];
   const sqlPricesDataAsc: string[][] = hasReal
     ? (() => {
-        const firstDates = realPrices['AAPL'].slice(0, 3).map(p => p.date);
-        return buildRealSqlRows(firstDates, 'price');
-      })()
+      const firstDates = realPrices['AAPL'].slice(0, 3).map(p => p.date);
+      return buildRealSqlRows(firstDates, 'price');
+    })()
     : [...SQL_TICKERS.map(t => [oD0, t, genPrice(oD0, t, 1)]), ...SQL_TICKERS.map(t => [oD1, t, genPrice(oD1, t, 1)]), ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genPrice(oD2, t, 1)])];
 
   const sqlReturnsDataAsc: string[][] = hasReal
     ? (() => {
-        const firstDates = realPrices['AAPL'].slice(1, 4).map(p => p.date);
-        return buildRealSqlRows(firstDates, 'return');
-      })()
+      const firstDates = realPrices['AAPL'].slice(1, 4).map(p => p.date);
+      return buildRealSqlRows(firstDates, 'return');
+    })()
     : [...SQL_TICKERS.map(t => [oD0, t, genReturn(oD0, t, 1)]), ...SQL_TICKERS.map(t => [oD1, t, genReturn(oD1, t, 1)]), ...SQL_TICKERS.slice(0, 4).map(t => [oD2, t, genReturn(oD2, t, 1)])];
 
   const sqlVolDataAsc: string[][] = hasReal
     ? (() => {
-        const firstDates = [realPrices['AAPL'][21]?.date, realPrices['AAPL'][42]?.date, realPrices['AAPL'][63]?.date].filter(Boolean) as string[];
-        return buildRealSqlRows(firstDates, 'vol');
-      })()
+      const firstDates = [realPrices['AAPL'][21]?.date, realPrices['AAPL'][42]?.date, realPrices['AAPL'][63]?.date].filter(Boolean) as string[];
+      return buildRealSqlRows(firstDates, 'vol');
+    })()
     : [...SQL_TICKERS.map(t => [oM0, t, genVol(oM0, t)]), ...SQL_TICKERS.map(t => [oM1, t, genVol(oM1, t)]), ...SQL_TICKERS.slice(0, 4).map(t => [oM2, t, genVol(oM2, t)])];
 
   // DESC: newest dates
@@ -713,25 +747,25 @@ export default function App() {
   const [nM1, nM2, nM3] = [recentME(1), recentME(2), recentME(3)];
   const sqlPricesDataDesc: string[][] = hasReal
     ? (() => {
-        const len = realPrices['AAPL'].length;
-        const lastDates = realPrices['AAPL'].slice(Math.max(0, len - 3)).map(p => p.date).reverse();
-        return buildRealSqlRows(lastDates, 'price');
-      })()
+      const len = realPrices['AAPL'].length;
+      const lastDates = realPrices['AAPL'].slice(Math.max(0, len - 3)).map(p => p.date).reverse();
+      return buildRealSqlRows(lastDates, 'price');
+    })()
     : [...SQL_TICKERS.map(t => [nD1, t, genPrice(nD1, t, 0)]), ...SQL_TICKERS.map(t => [nD2, t, genPrice(nD2, t, 0)]), ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genPrice(nD3, t, 0)])];
 
   const sqlReturnsDataDesc: string[][] = hasReal
     ? (() => {
-        const len = realPrices['AAPL'].length;
-        const lastDates = realPrices['AAPL'].slice(Math.max(1, len - 3)).map(p => p.date).reverse();
-        return buildRealSqlRows(lastDates, 'return');
-      })()
+      const len = realPrices['AAPL'].length;
+      const lastDates = realPrices['AAPL'].slice(Math.max(1, len - 3)).map(p => p.date).reverse();
+      return buildRealSqlRows(lastDates, 'return');
+    })()
     : [...SQL_TICKERS.map(t => [nD1, t, genReturn(nD1, t, 0)]), ...SQL_TICKERS.map(t => [nD2, t, genReturn(nD2, t, 0)]), ...SQL_TICKERS.slice(0, 4).map(t => [nD3, t, genReturn(nD3, t, 0)])];
 
   const sqlVolDataDesc: string[][] = hasReal
     ? (() => {
-        const lastDates = [nM1, nM2, nM3];
-        return buildRealSqlRows(lastDates, 'vol');
-      })()
+      const lastDates = [nM1, nM2, nM3];
+      return buildRealSqlRows(lastDates, 'vol');
+    })()
     : [...SQL_TICKERS.map(t => [nM1, t, genVol(nM1, t)]), ...SQL_TICKERS.map(t => [nM2, t, genVol(nM2, t)]), ...SQL_TICKERS.slice(0, 4).map(t => [nM3, t, genVol(nM3, t)])];
 
   const handleRunCode = () => {
@@ -755,7 +789,7 @@ export default function App() {
       setTimeout(() => {
         setLogs(prev => [...prev, log]);
         if (index === logSequence.length - 1) {
-          setTimeout(() => setRunState('done'), 800);
+          setTimeout(() => { setRunState('done'); setDashboardPage(1); }, 800);
         }
       }, index * 600);
     });
@@ -999,7 +1033,7 @@ export default function App() {
               <a
                 href="#"
                 key={index}
-                onClick={(e) => { e.preventDefault(); setSelectedProject(project); }}
+                onClick={(e) => { e.preventDefault(); setSelectedProject(project); setActiveTab('output'); }}
                 className="group flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-blue-300 hover:shadow-xl transition-all duration-300 cursor-pointer"
               >
                 <div className="p-6 flex-1 flex flex-col">
@@ -1055,7 +1089,7 @@ export default function App() {
                 <Mail className="w-5 h-5" />
                 {t.contact.btnEmail}
               </a>
-              <a href="#" className="flex items-center gap-2 px-8 py-4 bg-slate-800 text-white font-medium rounded-xl hover:bg-slate-700 transition-colors border border-slate-700">
+              <a href="https://www.linkedin.com/in/gabor-szabo-ps/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-8 py-4 bg-slate-800 text-white font-medium rounded-xl hover:bg-slate-700 transition-colors border border-slate-700">
                 <Linkedin className="w-5 h-5" />
                 {t.contact.btnLinkedIn}
               </a>
@@ -1100,25 +1134,25 @@ export default function App() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex bg-slate-100 p-1 rounded-lg">
                         <button
-                          onClick={() => setActiveTab('code')}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'code' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                          onClick={() => setActiveTab('output')}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'output' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                         >
-                          <Code className="w-4 h-4" />
-                          {lang === 'hu' ? 'Forráskód' : 'Source Code'}
+                          <Terminal className="w-4 h-4" />
+                          {lang === 'hu' ? 'Kimenet / Eredmény' : 'Output / Result'}
                         </button>
                         <button
                           onClick={() => setActiveTab('sql')}
                           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'sql' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                         >
                           <Database className="w-4 h-4" />
-                          SQL
+                          SQL View
                         </button>
                         <button
-                          onClick={() => setActiveTab('output')}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'output' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                          onClick={() => setActiveTab('code')}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'code' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                         >
-                          <Terminal className="w-4 h-4" />
-                          {lang === 'hu' ? 'Kimenet / Eredmény' : 'Output / Result'}
+                          <Code className="w-4 h-4" />
+                          {lang === 'hu' ? 'Forráskód' : 'Source Code'}
                         </button>
                       </div>
 
@@ -1148,7 +1182,7 @@ export default function App() {
                           <span className="ml-4 text-xs font-mono text-slate-300">portfolio_risk_management.py</span>
                         </div>
                         <pre className="p-4 overflow-x-auto text-sm font-mono text-slate-300 leading-relaxed max-h-[500px]">
-                          <code>{selectedProject.id === 1 ? portfolioRiskCodeSnippet : selectedProject.code}</code>
+                          <code>{selectedProject.id === 1 ? portfolioRiskCodeSnippet : selectedProject.id === 2 ? creditFraudSnippet : selectedProject.code}</code>
                         </pre>
                       </motion.div>
                     ) : activeTab === 'sql' ? (
@@ -1327,11 +1361,12 @@ export default function App() {
                                   className="w-2 h-4 bg-slate-400 inline-block align-middle ml-1"
                                 />
                               )}
+                              <div ref={logEndRef} />
                             </div>
 
                             {/* Visual Dashboard Results */}
                             {runState === 'done' && (
-                              <div className="flex flex-col gap-6 mt-4">
+                              <div ref={dashboardRef} className="flex flex-col gap-6 mt-4">
                                 {/* Pagination Controls */}
                                 <div className="flex justify-center gap-2 mb-4">
                                   {[1, 2, 3, 4].map(page => (
@@ -1697,7 +1732,7 @@ export default function App() {
             © {new Date().getFullYear()} Szabó Gábor - Financial Data Analyst
           </p>
           <div className="flex gap-4 text-sm text-slate-400">
-            <a href="#" className="hover:text-slate-600 transition-colors">LinkedIn</a>
+            <a href="https://www.linkedin.com/in/gabor-szabo-ps/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">LinkedIn</a>
             <a href="#" className="hover:text-slate-600 transition-colors">GitHub</a>
             <a href="#" className="hover:text-slate-600 transition-colors">Email</a>
           </div>
