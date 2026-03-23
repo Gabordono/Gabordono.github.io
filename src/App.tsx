@@ -66,7 +66,7 @@ const content = {
       badge: 'Nyitott az új lehetőségekre',
       title1: 'Üzleti fókuszú',
       title2: 'Pénzügyi Adatelemző',
-      desc: 'Több mint 4 év tapasztalattal rendelkezem komplex pénzügyi adathalmazok elemzésében és vizualizációjában. Fő fókuszom az adatok üzleti értékké alakítása, a manuális folyamatok automatizálása, és a vezetőségi döntéshozatal támogatása precíz, átlátható riportokkal.',
+      desc: '2 év tapasztalattal rendelkezem komplex pénzügyi adathalmazok elemzésében és vizualizációjában. Fő fókuszom az adatok üzleti értékké alakítása, a manuális folyamatok automatizálása, és a vezetőségi döntéshozatal támogatása precíz, átlátható riportokkal.',
       stats: {
         yoe: 'Év tapasztalat',
         acc: 'Adatprecizitás',
@@ -890,7 +890,7 @@ export default function App() {
           <p className="text-lg text-slate-600 mb-8 leading-relaxed">
             {lang === 'hu' ? (
               <>
-                Több mint 4 év tapasztalattal rendelkezem komplex pénzügyi adathalmazok elemzésében és vizualizációjában.
+                Több mint 2 év tapasztalattal rendelkezem komplex pénzügyi adathalmazok elemzésében és vizualizációjában.
                 Fő fókuszom az <strong className="text-slate-900 font-semibold">adatok üzleti értékké alakítása</strong>, a manuális folyamatok automatizálása,
                 és a vezetőségi döntéshozatal támogatása precíz, átlátható riportokkal.
               </>
