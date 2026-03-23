@@ -412,7 +412,7 @@ def plot_dashboard(results: dict, models: dict, X_test, y_test) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. EXCEL EXPORT (Power BI-hoz)
+# 7. EXCEL EXPORT
 # ─────────────────────────────────────────────────────────────────────────────
 
 def export_to_excel(results: dict, models: dict, X_test, y_test) -> None:
@@ -476,6 +476,19 @@ def export_to_excel(results: dict, models: dict, X_test, y_test) -> None:
         pred_df["Predicted"]  = results[best_name]["y_pred"][:10000]
         pred_df["Fraud_Prob"] = results[best_name]["y_prob"][:10000].round(4)
         pred_df.to_excel(writer, sheet_name="Predictions", index=False)
+
+        # Lap 6: Confusion Matrix
+        cm_rows = []
+        for name, res in results.items():
+            cm = res["confusion_matrix"]
+            cm_df = pd.DataFrame(
+                cm,
+                index=["Actual Normál", "Actual Fraud"],
+                columns=["Predicted Normál", "Predicted Fraud"]
+            )
+            cm_df.insert(0, "Model", name)
+            cm_rows.append(cm_df)
+        pd.concat(cm_rows).to_excel(writer, sheet_name="Confusion_Matrix", index=True)
 
     print(f"    Excel mentve: {excel_path}")
 
