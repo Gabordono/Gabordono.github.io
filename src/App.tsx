@@ -114,7 +114,7 @@ const content = {
         {
           id: 1,
           title: 'Portfólió Kockázatkezelési Dashboard',
-          description: 'Interaktív Power BI dashboard befektetési portfóliók kockázatának (VaR, Sharpe-mutató) és hozamának valós idejű nyomon követésére.',
+          description: 'Ez a projekt egy átfogó, intézményi szintű kockázatkezelő rendszer, amely valós piaci adatokon végez mélyreható pénzügyi elemzést. A Yahoo Finance API-n keresztül élő árfolyamadatokat tölt le egy nyolc eszközből álló diverzifikált portfólióhoz (részvények, arany ETF és állampapír ETF), és az adatokat egy produkciós MSSQL sémát tükröző SQLite adatbázisban tárolja.\n\nAz elemzés a legfontosabb kvantitatív kockázati metrikákat fedi le: éves hozam és volatilitás, Sharpe-ráta, parametrikus VaR (95% és 99%), CVaR / Expected Shortfall, Maximum Drawdown, Béta és Diverzifikációs Ráta. Az eredmények egy négylap dark témájú Matplotlib dashboardon jelennek meg, kumulatív hozamgörbékkel, korrelációs hőtérképpel, Sharpe-ráta összehasonlítással és drawdown vizualizációval.\n\nAz alkalmazás egy tkinter alapú GUI-val indul, amely lehetővé teszi a kimeneti fájlok interaktív kiválasztását. Exportál egy Power BI-kész Excel munkafüzetet hat strukturált adatlappal, és Windows rendszeren automatikusan elindítja a Power BI Desktopot. A megoldás Pythonban íródott, a pandas, numpy, yfinance, scipy és matplotlib könyvtárak felhasználásával.',
           tags: ['Power BI', 'Python', 'SQL'],
           metrics: 'Valós idejű monitorozás',
           code: portfolioRiskCode
@@ -202,7 +202,7 @@ const content = {
         {
           id: 1,
           title: 'Portfolio Risk Management Dashboard',
-          description: 'Interactive Power BI dashboard for real-time tracking of investment portfolio risk (VaR, Sharpe ratio) and return performance.',
+          description: 'This project is a comprehensive, institutional-grade risk management system that performs in-depth financial analysis on real-world market data. It downloads live price data via the Yahoo Finance API for a diversified eight-asset portfolio (equities, gold ETF, and treasury ETF), and persists the data in a SQLite database modeled after a production MSSQL schema.\n\nThe analysis covers the most critical quantitative risk metrics: annualized return and volatility, Sharpe ratio, parametric VaR (95% and 99%), CVaR / Expected Shortfall, Maximum Drawdown, Beta, and Diversification Ratio. Results are displayed across a four-page dark-themed Matplotlib dashboard featuring cumulative return curves, a correlation heatmap, Sharpe ratio comparisons, and drawdown visualization.\n\nThe application launches with a tkinter-based GUI that lets the user interactively select output file locations. It also exports a Power BI–ready Excel workbook with six structured data sheets, and on Windows automatically launches Power BI Desktop. The solution is written in Python, leveraging pandas, numpy, yfinance, scipy, and matplotlib.',
           tags: ['Power BI', 'Python', 'SQL'],
           metrics: 'Real-time monitoring',
           code: portfolioRiskCode
