@@ -126,18 +126,6 @@ const content = {
           metrics: '15%-os pontosság-növekedés',
         },
         {
-          title: 'Automatizált Cash-Flow Dashboard',
-          description: 'Komplex Power BI dashboard kialakítása, amely valós időben vizualizálja a cég likviditását és a főbb pénzügyi KPI-okat.',
-          tags: ['Power BI', 'SQL Server', 'DAX'],
-          metrics: 'Napi 2 óra adminisztráció megtakarítás',
-        },
-        {
-          title: 'Piaci Trendek és Profitabilitás Elemzés',
-          description: 'Termékvonalak profitabilitásának mélyreható elemzése (Time Series Analysis), amely rámutatott a legkevésbé jövedelmező szegmensekre.',
-          tags: ['Python', 'Pandas', 'Adatvizualizáció'],
-          metrics: '+8% profitmarzs növekedés',
-        },
-        {
           id: 2,
           title: 'Hitelezési Kockázat & Csalásdetektálási Modell',
           description: 'Kaggle nyilvános banki adatsor alapján Random Forest és Logisztikus Regresszió modell Pythonban. SMOTE technikával kezeli az erősen imbalanced adatot. AUC: 0.97, Fraud Recall: 94%.',
@@ -224,18 +212,6 @@ const content = {
           description: 'Developed a Python-based predictive model for forecasting credit risks. The project aimed to reduce default rates.',
           tags: ['Python', 'Machine Learning', 'SQL'],
           metrics: '+15% accuracy increase',
-        },
-        {
-          title: 'Automated Cash-Flow Dashboard',
-          description: 'Created a complex Power BI dashboard visualizing company liquidity and key financial KPIs in real-time.',
-          tags: ['Power BI', 'SQL Server', 'DAX'],
-          metrics: '2 hours/day admin time saved',
-        },
-        {
-          title: 'Market Trends & Profitability Analysis',
-          description: 'In-depth profitability analysis of product lines (Time Series Analysis), highlighting the least profitable segments.',
-          tags: ['Python', 'Pandas', 'Data Visualization'],
-          metrics: '+8% profit margin increase',
         },
         {
           id: 2,
