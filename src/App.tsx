@@ -749,7 +749,35 @@ export default function App() {
     setRunState('running');
     setLogs([]);
 
-    const logSequence = [
+    const isFraud = selectedProject?.id === 2;
+
+    const logSequence = isFraud ? [
+      "$ FRAUD DETECTION ML – PORTFÓLIÓ PROJEKT",
+      "============================================================",
+      "[1] Adathalmaz betöltve: 284,807 tranzakció, 31 változó",
+      "    Normál tranzakció : 284,315  (99.83%)",
+      "    Csalás (fraud)    : 492      (0.1727%)",
+      "    Osztályarány      : 1 : 577",
+      "[2] EDA futtatása...    → EDA mentve: fraud_output/01_eda.png",
+      "[3] Előfeldolgozás...",
+      "    Train: 227,845 minta | Test: 56,962 minta",
+      "    SMOTE előtt: {0: 227451, 1: 394}",
+      "    SMOTE után : {0: 227451, 1: 227451}",
+      "[4] Modellek tanítása...",
+      "    [OK] Logistic Regression kész",
+      "    [OK] Random Forest kész",
+      "[5] Modellek kiértékelése...",
+      "    --- Random Forest ---",
+      "    AUC-ROC   : 0.9743",
+      "    F1 Score  : 0.8812",
+      "    Precision : 0.9583",
+      "    Recall    : 0.8163",
+      "    Elkapott fraud: 80 / 98",
+      "[6] Dashboard generálása... → fraud_output/02_dashboard.png",
+      "[7] Excel exportálása Power BI-hoz... → fraud_output/fraud_model_results.xlsx",
+      "============================================================",
+      "  Minden output megtalálható: ./fraud_output/"
+    ] : [
       "Initializing Portfolio Risk Management System...",
       " Fetching market data from Yahoo Finance (AAPL, MSFT, JPM, GS, BLK, XOM, GLD, TLT)...",
       " Downloaded 756 trading days × 8 assets",
@@ -765,7 +793,7 @@ export default function App() {
       setTimeout(() => {
         setLogs(prev => [...prev, log]);
         if (index === logSequence.length - 1) {
-          setTimeout(() => { setRunState('done'); setDashboardPage(1); }, 800);
+          setTimeout(() => { setRunState('done'); if (!isFraud) setDashboardPage(1); }, 800);
         }
       }, index * 600);
     });
