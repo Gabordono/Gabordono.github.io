@@ -788,8 +788,7 @@ export default function App() {
       "    Precision : 0.9583",
       "    Recall    : 0.8163",
       "    Elkapott fraud: 80 / 98",
-      "[6] Dashboard generálása... → fraud_output/02_dashboard.png",
-      "[7] Excel exportálása Power BI-hoz... → fraud_output/fraud_model_results.xlsx",
+      "[6] Excel exportálása Power BI-hoz... → fraud_output/fraud_model_results.xlsx",
       "============================================================",
       "  Minden output megtalálható: ./fraud_output/"
     ] : [
@@ -808,7 +807,7 @@ export default function App() {
       setTimeout(() => {
         setLogs(prev => [...prev, log]);
         if (index === logSequence.length - 1) {
-          setTimeout(() => { setRunState('done'); if (!isFraud) setDashboardPage(1); }, 800);
+          setTimeout(() => { setRunState('done'); setDashboardPage(1); }, 800);
         }
       }, index * 600);
     });
@@ -821,6 +820,7 @@ export default function App() {
       setRunState('idle');
       setLogs([]);
       setActiveTab('code');
+      setDashboardPage(1);
     }, 300);
   };
 
@@ -1439,6 +1439,18 @@ export default function App() {
                               <div ref={logEndRef} />
                             </div>
 
+                            {runState === 'done' && (
+                              <div className="flex justify-end">
+                                <button
+                                  onClick={handleRunCode}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                                >
+                                  <Play className="w-3 h-3 fill-current" />
+                                  {lang === 'hu' ? 'Újra futtatás' : 'Re-run'}
+                                </button>
+                              </div>
+                            )}
+
                             {/* Visual Dashboard Results – Fraud Detection */}
                             {runState === 'done' && selectedProject?.id === 2 && (
                               <div ref={dashboardRef} className="flex flex-col gap-6 mt-4">
@@ -1460,15 +1472,15 @@ export default function App() {
                                       </div>
                                       <div style={{width:'100%',height:240}}>
                                         <ResponsiveContainer width="100%" height="100%">
-                                          <LineChart data={fraudRocMerged} margin={{top:8,right:24,left:8,bottom:24}}>
+                                          <RechartsLineChart data={fraudRocMerged} margin={{top:8,right:24,left:8,bottom:24}}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
                                             <XAxis dataKey="fpr" tickFormatter={(v:number)=>v.toFixed(2)} tick={{fontSize:10}} label={{value:'False Positive Rate',position:'insideBottom',offset:-12,fontSize:11,fill:'#94a3b8'}}/>
                                             <YAxis domain={[0,1]} tick={{fontSize:10}} label={{value:'True Positive Rate',angle:-90,position:'insideLeft',offset:8,fontSize:11,fill:'#94a3b8'}}/>
-                                            <Tooltip formatter={(v:number)=>v?.toFixed(4)} labelFormatter={(v:number)=>`FPR: ${Number(v).toFixed(3)}`}/>
+                                            <RechartsTooltip formatter={(v:number)=>v?.toFixed(4)} labelFormatter={(v:number)=>`FPR: ${Number(v).toFixed(3)}`}/>
                                             <Legend wrapperStyle={{fontSize:12,paddingTop:8}}/>
                                             <Line type="monotone" dataKey="rf" stroke="#6366f1" strokeWidth={2.5} dot={false} name="Random Forest"/>
                                             <Line type="monotone" dataKey="lr" stroke="#f97316" strokeWidth={2} dot={false} strokeDasharray="5 3" name="Logistic Regression"/>
-                                          </LineChart>
+                                          </RechartsLineChart>
                                         </ResponsiveContainer>
                                       </div>
                                     </div>
@@ -1479,16 +1491,16 @@ export default function App() {
                                       </div>
                                       <div style={{width:'100%',height:240}}>
                                         <ResponsiveContainer width="100%" height="100%">
-                                          <LineChart data={fraudPrMerged} margin={{top:8,right:24,left:8,bottom:24}}>
+                                          <RechartsLineChart data={fraudPrMerged} margin={{top:8,right:24,left:8,bottom:24}}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
                                             <XAxis dataKey="rec" tickFormatter={(v:number)=>v.toFixed(1)} tick={{fontSize:10}} label={{value:'Recall',position:'insideBottom',offset:-12,fontSize:11,fill:'#94a3b8'}}/>
                                             <YAxis domain={[0,1]} tick={{fontSize:10}} label={{value:'Precision',angle:-90,position:'insideLeft',offset:8,fontSize:11,fill:'#94a3b8'}}/>
-                                            <Tooltip formatter={(v:number)=>v?.toFixed(4)} labelFormatter={(v:number)=>`Recall: ${Number(v).toFixed(2)}`}/>
+                                            <RechartsTooltip formatter={(v:number)=>v?.toFixed(4)} labelFormatter={(v:number)=>`Recall: ${Number(v).toFixed(2)}`}/>
                                             <Legend wrapperStyle={{fontSize:12,paddingTop:8}}/>
                                             <ReferenceLine y={0.0017} stroke="#94a3b8" strokeDasharray="4 2"/>
                                             <Line type="monotone" dataKey="rf" stroke="#6366f1" strokeWidth={2.5} dot={false} name="Random Forest"/>
                                             <Line type="monotone" dataKey="lr" stroke="#f97316" strokeWidth={2} dot={false} strokeDasharray="5 3" name="Logistic Regression"/>
-                                          </LineChart>
+                                          </RechartsLineChart>
                                         </ResponsiveContainer>
                                       </div>
                                     </div>
