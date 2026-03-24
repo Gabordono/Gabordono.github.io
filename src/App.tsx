@@ -84,9 +84,9 @@ const content = {
           company: 'ExxonMobil Hungary LLC.',
           period: '2025. június – Jelenleg',
           highlights: [
-            'Nyersolaj-mozgások rögzítése, validálása és egyeztetése terminálok, tranzitpontok és gyártási interfészek között pénzügyi és stewardship riporting céljából.',
-            'Python-alapú belső eszközök fejlesztése: spread kalkulátor standardizált Excel-riportokhoz és portfólió-tracker, amely automatikusan letölti, importálja és konszolidálja a könyvelési tételeket.',
-            'Globális érdekelt felekkel való együttműködés munkafolyamatok elemzésére, hatékonysági problémák azonosítására és fejlesztett folyamatok tervezésére a belső irányítási követelményekkel összhangban.'
+            'Az ExxonMobil International Supply & Transportation divíziójában a volumetrikus könyvelés teljes életciklusát kezelem — a nyersolaj-mozgások rögzítésétől és validálásától az eltérések feloldásán át a hónadvégi zárás támogatásáig.',
+            'Önállóan fejlesztettem két Python-alapú belső eszközt: egy spread kalkulátort, amely standardizált Excel-riportokat generál, és egy portfólió-trackert, amely automatikusan letölti, importálja és konszolidálja a függőben lévő könyvelési tételeket — jelentősen csökkentve a manuális feldolgozási időt.',
+            'Globális érdekelt felekkel együttműködve térképezem fel a munkafolyamatokat, azonosítom a hatékonysági problémákat, és tervezek fejlesztett folyamatokat a belső irányítási és audit követelményekkel összhangban.'
           ]
         },
         {
@@ -94,9 +94,8 @@ const content = {
           company: 'Jazz Event Kft.',
           period: '2025. január – 2025. június',
           highlights: [
-            'Excel és Power BI dashboardok és vezetői riportok fejlesztése.',
-            'Tervezés, előrejelzés és valós idejű költségfigyelési tevékenységek támogatása.',
-            'Strukturált pénzügyi adathalmazok felépítése és karbantartása, biztosítva az adatok pontosságát és konzisztenciáját.'
+            'Egy gyors tempójú eseményszervező cég pénzügyi működését támogattam, ahol a valós idejű költségtranszparencia kritikus fontosságú.',
+            'Excel és Power BI dashboardokat építettem a vezetői riportinghoz, strukturált pénzügyi adathalmazokat tartottam karban, és varianciaanalízist készítettem az osztályok közötti költségvetési döntések támogatásához.'
           ]
         },
         {
@@ -104,9 +103,8 @@ const content = {
           company: 'METRO Cash & Carry Hungary Zrt. (METRO AG)',
           period: '2024. május – 2025. január',
           highlights: [
-            'Excel makrók és pivot táblák fejlesztése a riporting és a pénzügyi elemzés automatizálásához (fedezet, forgalom, jövedelmezőség).',
-            'Strukturált adatvalidálás és SQL-alapú lekérdezések végrehajtása a riporting pontosságának biztosítására.',
-            'Hónap- és negyedévzárási folyamatok támogatása pénzügyi adatkinyeréssel, validálással és egyeztetéssel.'
+            'Alapvető vállalati pénzügyi tapasztalatot szereztem Európa egyik legnagyobb kiskereskedelmi csoportjánál.',
+            'Excel makrókat és pivot táblákat fejlesztettem a pénzügyi elemzés automatizálásához (fedezet, forgalom, jövedelmezőség), SQL-alapú adatvalidálást végeztem, és negyedévzárási folyamatokat támogattam adatkinyeréssel és egyeztetéssel.'
           ]
         }
       ]
@@ -182,9 +180,9 @@ const content = {
           company: 'ExxonMobil Hungary LLC.',
           period: 'Jun 2025 – Present',
           highlights: [
-            'Recorded, validated, and reconciled crude oil movements across terminals, transit points, and manufacturing interfaces for financial and stewardship reporting.',
-            'Developed Python-based internal tools including a spread calculator generating standardized Excel reports and a portfolio tracker that automatically downloads, imports, and consolidates accounting-pending items.',
-            'Collaborated with global stakeholders to analyze workflows, identify inefficiencies, and design improved processes aligned with internal governance requirements.'
+            'Working within ExxonMobil\'s International Supply & Transportation division, I manage the full lifecycle of volumetric accounting — from recording and validating crude oil movements to resolving discrepancies and supporting month-end close.',
+            'Independently developed two Python-based internal tools: a spread calculator that generates standardized Excel reports, and a portfolio tracker that automatically downloads, imports, and consolidates accounting-pending items — cutting manual processing time significantly.',
+            'Collaborate with global stakeholders to map workflows, identify inefficiencies, and design improved processes aligned with internal governance and audit requirements.'
           ]
         },
         {
@@ -192,9 +190,8 @@ const content = {
           company: 'Jazz Event Kft.',
           period: 'Jan 2025 – Jun 2025',
           highlights: [
-            'Developed dashboards and management reports using Excel and Power BI.',
-            'Supported budgeting, forecasting, and real-time cost monitoring activities.',
-            'Built and maintained structured financial datasets ensuring data accuracy and consistency.'
+            'Supported the financial operations of a fast-moving event company, where real-time cost visibility is critical.',
+            'Built Excel and Power BI dashboards for management reporting, maintained structured financial datasets, and delivered variance analysis to support budget decisions across departments.'
           ]
         },
         {
@@ -202,9 +199,8 @@ const content = {
           company: 'METRO Cash & Carry Hungary Zrt. (METRO AG)',
           period: 'May 2024 – Jan 2025',
           highlights: [
-            'Developed Excel macros and pivot tables to automate reporting and financial analysis, including margin, turnover, and profitability metrics.',
-            'Performed structured data validation and executed SQL-based queries to ensure reporting accuracy.',
-            'Supported month-end and quarterly closing processes through financial data extraction, validation, and reconciliation.'
+            'Gained foundational experience in corporate finance within one of Europe\'s largest retail groups.',
+            'Developed Excel macros and pivot tables to automate financial analysis across margin, turnover, and profitability metrics, performed SQL-based data validation, and supported quarterly closing processes through hands-on data extraction and reconciliation.'
           ]
         }
       ]
