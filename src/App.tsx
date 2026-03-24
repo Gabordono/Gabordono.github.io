@@ -80,23 +80,33 @@ const content = {
       title: 'Szakmai Tapasztalat',
       jobs: [
         {
-          role: 'Financial Data Analyst',
-          company: 'Példa Vállalat Zrt.',
-          period: '2021 - Jelenleg',
+          role: 'Volumetrikus Könyvelési Elemző',
+          company: 'ExxonMobil Hungary LLC.',
+          period: '2025. június – Jelenleg',
           highlights: [
-            'Automatizált pénzügyi riporting rendszer kialakítása, amely havi 40 munkaórát takarított meg a pénzügyi osztálynak.',
-            'Vezetői dashboardok (Power BI) fejlesztése a C-level menedzsment számára, felgyorsítva a stratégiai döntéshozatalt.',
-            'Költségoptimalizálási adatelemzés végrehajtása, amely 12%-os megtakarítást azonosított az operatív kiadásokban.'
+            'Nyersolaj-mozgások rögzítése, validálása és egyeztetése terminálok, tranzitpontok és gyártási interfészek között pénzügyi és stewardship riporting céljából.',
+            'Python-alapú belső eszközök fejlesztése: spread kalkulátor standardizált Excel-riportokhoz és portfólió-tracker, amely automatikusan letölti, importálja és konszolidálja a könyvelési tételeket.',
+            'Globális érdekelt felekkel való együttműködés munkafolyamatok elemzésére, hatékonysági problémák azonosítására és fejlesztett folyamatok tervezésére a belső irányítási követelményekkel összhangban.'
           ]
         },
         {
-          role: 'Junior Pénzügyi Elemző',
-          company: 'Pénzügyi Tanácsadó Kft.',
-          period: '2019 - 2021',
+          role: 'Kontrolling Intern',
+          company: 'Jazz Event Kft.',
+          period: '2025. január – 2025. június',
           highlights: [
-            'Részvétel az éves üzleti tervezésben (budgeting & forecasting) és a havi variancia elemzésben.',
-            'Nagy méretű adathalmazok tisztítása és strukturálása SQL és Excel Power Query segítségével.',
-            'Adatminőség javítási projekt támogatása, amely 99.5%-os adatintegritást eredményezett.'
+            'Excel és Power BI dashboardok és vezetői riportok fejlesztése.',
+            'Tervezés, előrejelzés és valós idejű költségfigyelési tevékenységek támogatása.',
+            'Strukturált pénzügyi adathalmazok felépítése és karbantartása, biztosítva az adatok pontosságát és konzisztenciáját.'
+          ]
+        },
+        {
+          role: 'Pénzügyi Intern',
+          company: 'METRO Cash & Carry Hungary Zrt. (METRO AG)',
+          period: '2024. május – 2025. január',
+          highlights: [
+            'Excel makrók és pivot táblák fejlesztése a riporting és a pénzügyi elemzés automatizálásához (fedezet, forgalom, jövedelmezőség).',
+            'Strukturált adatvalidálás és SQL-alapú lekérdezések végrehajtása a riporting pontosságának biztosítására.',
+            'Hónap- és negyedévzárási folyamatok támogatása pénzügyi adatkinyeréssel, validálással és egyeztetéssel.'
           ]
         }
       ]
@@ -168,23 +178,33 @@ const content = {
       title: 'Professional Experience',
       jobs: [
         {
-          role: 'Financial Data Analyst',
-          company: 'Example Company Ltd.',
-          period: '2021 - Present',
+          role: 'Volumetric Accounting Analyst',
+          company: 'ExxonMobil Hungary LLC.',
+          period: 'Jun 2025 – Present',
           highlights: [
-            'Developed an automated financial reporting system, saving the finance department 40 hours per month.',
-            'Created executive (Power BI) dashboards for C-level management, accelerating strategic decision-making.',
-            'Conducted cost optimization data analysis, identifying a 12% saving in operational expenses.'
+            'Recorded, validated, and reconciled crude oil movements across terminals, transit points, and manufacturing interfaces for financial and stewardship reporting.',
+            'Developed Python-based internal tools including a spread calculator generating standardized Excel reports and a portfolio tracker that automatically downloads, imports, and consolidates accounting-pending items.',
+            'Collaborated with global stakeholders to analyze workflows, identify inefficiencies, and design improved processes aligned with internal governance requirements.'
           ]
         },
         {
-          role: 'Junior Financial Analyst',
-          company: 'Financial Consulting LLC',
-          period: '2019 - 2021',
+          role: 'Cost Controller Intern',
+          company: 'Jazz Event Kft.',
+          period: 'Jan 2025 – Jun 2025',
           highlights: [
-            'Participated in annual business planning (budgeting & forecasting) and monthly variance analysis.',
-            'Cleaned and structured large datasets using SQL and Excel Power Query.',
-            'Supported a data quality improvement project resulting in 99.5% data integrity.'
+            'Developed dashboards and management reports using Excel and Power BI.',
+            'Supported budgeting, forecasting, and real-time cost monitoring activities.',
+            'Built and maintained structured financial datasets ensuring data accuracy and consistency.'
+          ]
+        },
+        {
+          role: 'Finance Intern',
+          company: 'METRO Cash & Carry Hungary Zrt. (METRO AG)',
+          period: 'May 2024 – Jan 2025',
+          highlights: [
+            'Developed Excel macros and pivot tables to automate reporting and financial analysis, including margin, turnover, and profitability metrics.',
+            'Performed structured data validation and executed SQL-based queries to ensure reporting accuracy.',
+            'Supported month-end and quarterly closing processes through financial data extraction, validation, and reconciliation.'
           ]
         }
       ]
