@@ -48,7 +48,8 @@ import {
   ReferenceLine,
   AreaChart,
   Area,
-  LabelList
+  LabelList,
+  Tooltip
 } from 'recharts';
 import { portfolioRiskCode, portfolioRiskCodeSnippet, portfolioRiskSQLCode } from './data/portfolioRiskCode';
 import { creditFraudCode, creditFraudSnippet } from './data/creditFraudDetection';
@@ -1368,8 +1369,127 @@ export default function App() {
                               <div ref={logEndRef} />
                             </div>
 
-                            {/* Visual Dashboard Results */}
-                            {runState === 'done' && (
+                            {/* Visual Dashboard Results – Fraud Detection */}
+                            {runState === 'done' && selectedProject?.id === 2 && (() => {
+                              const rocRF = [{fpr:0,tpr:0},{fpr:0.001,tpr:0.52},{fpr:0.002,tpr:0.70},{fpr:0.005,tpr:0.81},{fpr:0.01,tpr:0.86},{fpr:0.02,tpr:0.90},{fpr:0.05,tpr:0.93},{fpr:0.1,tpr:0.96},{fpr:0.2,tpr:0.977},{fpr:0.5,tpr:0.991},{fpr:1,tpr:1}];
+                              const rocLR = [{fpr:0,tpr:0},{fpr:0.003,tpr:0.45},{fpr:0.007,tpr:0.63},{fpr:0.015,tpr:0.75},{fpr:0.03,tpr:0.82},{fpr:0.06,tpr:0.87},{fpr:0.1,tpr:0.91},{fpr:0.2,tpr:0.945},{fpr:0.5,tpr:0.975},{fpr:1,tpr:1}];
+                              const prRF = [{rec:0,prec:1},{rec:0.1,prec:0.98},{rec:0.3,prec:0.97},{rec:0.5,prec:0.95},{rec:0.65,prec:0.93},{rec:0.75,prec:0.91},{rec:0.82,prec:0.879},{rec:0.90,prec:0.72},{rec:0.95,prec:0.52},{rec:1,prec:0.002}];
+                              const prLR = [{rec:0,prec:1},{rec:0.1,prec:0.88},{rec:0.3,prec:0.82},{rec:0.5,prec:0.76},{rec:0.65,prec:0.68},{rec:0.75,prec:0.58},{rec:0.85,prec:0.44},{rec:0.92,prec:0.30},{rec:1,prec:0.002}];
+                              const rocMerged = rocRF.map((d,i) => ({ fpr: d.fpr, rf: d.tpr, lr: rocLR[i]?.tpr ?? undefined }));
+                              const prMerged  = prRF.map((d,i) => ({ rec: d.rec, rf: d.prec, lr: prLR[i]?.prec ?? undefined }));
+                              const features = [
+                                {name:'V17',rf:0.1823},{name:'V14',rf:0.1642},{name:'V12',rf:0.1234},{name:'V10',rf:0.0987},{name:'V11',rf:0.0876},
+                                {name:'V16',rf:0.0754},{name:'V3',rf:0.0612},{name:'V4',rf:0.0534},{name:'V7',rf:0.0487},{name:'V2',rf:0.0423},
+                                {name:'Amount',rf:0.0376},{name:'V1',rf:0.0321},{name:'V6',rf:0.0287},{name:'V21',rf:0.0243},{name:'V5',rf:0.0201}
+                              ].reverse();
+                              const cm = {tn:56782,fp:82,fn:18,tp:80};
+                              const [fraudPage, setFraudPage] = [dashboardPage, setDashboardPage];
+                              return (
+                              <div ref={dashboardRef} className="flex flex-col gap-6 mt-4">
+                                <div className="flex justify-center gap-2 mb-2">
+                                  {[1,2].map(p => (
+                                    <button key={p} onClick={() => setFraudPage(p)}
+                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${fraudPage===p?'bg-indigo-600 text-white shadow-md':'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                                      {lang==='hu'?`Oldal ${p}`:`Page ${p}`}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {fraudPage === 1 && (
+                                  <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} className="flex flex-col gap-4">
+                                    {/* AUC-ROC */}
+                                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                      <div className="flex items-center gap-2 mb-3"><span className="text-sm font-semibold text-slate-800">AUC-ROC Curve</span><span className="ml-auto text-xs text-slate-400">RF: 0.9743 &nbsp;|&nbsp; LR: 0.9712</span></div>
+                                      <ResponsiveContainer width="100%" height={220}>
+                                        <LineChart data={rocMerged} margin={{top:4,right:16,left:0,bottom:4}}>
+                                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                                          <XAxis dataKey="fpr" tickFormatter={v=>v.toFixed(2)} label={{value:'False Positive Rate',position:'insideBottom',offset:-2,fontSize:11,fill:'#94a3b8'}} tick={{fontSize:10}}/>
+                                          <YAxis domain={[0,1]} label={{value:'True Positive Rate',angle:-90,position:'insideLeft',fontSize:11,fill:'#94a3b8'}} tick={{fontSize:10}}/>
+                                          <Tooltip formatter={(v:number)=>v?.toFixed(4)} labelFormatter={v=>`FPR: ${Number(v).toFixed(3)}`}/>
+                                          <Legend wrapperStyle={{fontSize:12}}/>
+                                          <ReferenceLine x={0} stroke="#e2e8f0"/><ReferenceLine y={0} stroke="#e2e8f0"/>
+                                          <Line type="monotone" dataKey="rf" stroke="#6366f1" strokeWidth={2.5} dot={false} name="Random Forest"/>
+                                          <Line type="monotone" dataKey="lr" stroke="#f97316" strokeWidth={2} dot={false} strokeDasharray="5 3" name="Logistic Regression"/>
+                                        </LineChart>
+                                      </ResponsiveContainer>
+                                    </div>
+                                    {/* Precision-Recall */}
+                                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                      <div className="flex items-center gap-2 mb-3"><span className="text-sm font-semibold text-slate-800">Precision-Recall Curve</span><span className="ml-auto text-xs text-slate-400">RF AP: 0.8201 &nbsp;|&nbsp; LR AP: 0.7543</span></div>
+                                      <ResponsiveContainer width="100%" height={220}>
+                                        <LineChart data={prMerged} margin={{top:4,right:16,left:0,bottom:4}}>
+                                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                                          <XAxis dataKey="rec" tickFormatter={v=>v.toFixed(1)} label={{value:'Recall',position:'insideBottom',offset:-2,fontSize:11,fill:'#94a3b8'}} tick={{fontSize:10}}/>
+                                          <YAxis domain={[0,1]} label={{value:'Precision',angle:-90,position:'insideLeft',fontSize:11,fill:'#94a3b8'}} tick={{fontSize:10}}/>
+                                          <Tooltip formatter={(v:number)=>v?.toFixed(4)} labelFormatter={v=>`Recall: ${Number(v).toFixed(2)}`}/>
+                                          <Legend wrapperStyle={{fontSize:12}}/>
+                                          <ReferenceLine y={0.0017} stroke="#94a3b8" strokeDasharray="4 2" label={{value:'Baseline',fontSize:10,fill:'#94a3b8'}}/>
+                                          <Line type="monotone" dataKey="rf" stroke="#6366f1" strokeWidth={2.5} dot={false} name="Random Forest"/>
+                                          <Line type="monotone" dataKey="lr" stroke="#f97316" strokeWidth={2} dot={false} strokeDasharray="5 3" name="Logistic Regression"/>
+                                        </LineChart>
+                                      </ResponsiveContainer>
+                                    </div>
+                                  </motion.div>
+                                )}
+
+                                {fraudPage === 2 && (
+                                  <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} className="flex flex-col gap-4">
+                                    {/* Confusion Matrix + KPIs */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                        <div className="text-sm font-semibold text-slate-800 mb-3">Confusion Matrix – Random Forest</div>
+                                        <div className="grid grid-cols-2 gap-2 mb-3">
+                                          {[
+                                            {label:'True Negative',val:cm.tn,sub:`${(cm.tn/(cm.tn+cm.fp)*100).toFixed(2)}%`,color:'bg-emerald-50 border-emerald-200 text-emerald-700'},
+                                            {label:'False Positive',val:cm.fp,sub:`${(cm.fp/(cm.tn+cm.fp)*100).toFixed(2)}%`,color:'bg-orange-50 border-orange-200 text-orange-700'},
+                                            {label:'False Negative',val:cm.fn,sub:`${(cm.fn/(cm.fn+cm.tp)*100).toFixed(2)}%`,color:'bg-red-50 border-red-200 text-red-700'},
+                                            {label:'True Positive',val:cm.tp,sub:`${(cm.tp/(cm.fn+cm.tp)*100).toFixed(2)}%`,color:'bg-emerald-50 border-emerald-200 text-emerald-700'},
+                                          ].map(c=>(
+                                            <div key={c.label} className={`border rounded-lg p-3 ${c.color}`}>
+                                              <div className="text-xs font-medium mb-1">{c.label}</div>
+                                              <div className="text-2xl font-bold">{c.val.toLocaleString()}</div>
+                                              <div className="text-xs opacity-70">{c.sub}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                          {[
+                                            {k:'AUC-ROC',v:'0.9743'},{k:'F1 Score',v:'0.8812'},
+                                            {k:'Precision',v:'0.9583'},{k:'Recall',v:'0.8163'},
+                                          ].map(m=>(
+                                            <div key={m.k} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                                              <div className="text-slate-400">{m.k}</div>
+                                              <div className="font-bold text-slate-800 text-sm">{m.v}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      {/* Feature Importance */}
+                                      <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                        <div className="text-sm font-semibold text-slate-800 mb-3">Top 15 Feature Importance (RF)</div>
+                                        <ResponsiveContainer width="100%" height={300}>
+                                          <BarChart data={features} layout="vertical" margin={{top:0,right:40,left:30,bottom:0}}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/>
+                                            <XAxis type="number" tickFormatter={v=>v.toFixed(2)} tick={{fontSize:10}}/>
+                                            <YAxis type="category" dataKey="name" tick={{fontSize:10}} width={40}/>
+                                            <Tooltip formatter={(v:number)=>v.toFixed(4)}/>
+                                            <Bar dataKey="rf" name="Importance" radius={[0,3,3,0]}>
+                                              {features.map((_,i)=>(
+                                                <Cell key={i} fill={i >= features.length-5 ? '#f97316' : '#6366f1'}/>
+                                              ))}
+                                            </Bar>
+                                          </BarChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </div>
+                              );
+                            })()}
+
+                            {/* Visual Dashboard Results – Portfolio Risk */}
+                            {runState === 'done' && selectedProject?.id !== 2 && (
                               <div ref={dashboardRef} className="flex flex-col gap-6 mt-4">
                                 {/* Pagination Controls */}
                                 <div className="flex justify-center gap-2 mb-4">
