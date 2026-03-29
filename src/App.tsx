@@ -1257,6 +1257,15 @@ export default function App() {
                           {(selectedProject?.id === 2 || selectedProject?.id === 3) ? <FileSpreadsheet className="w-4 h-4" /> : <Database className="w-4 h-4" />}
                           {(selectedProject?.id === 2 || selectedProject?.id === 3) ? 'Excel Preview' : 'SQL View'}
                         </button>
+                        {selectedProject?.id === 3 && (
+                          <button
+                            onClick={() => setActiveTab('pdf' as any)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === ('pdf' as any) ? 'bg-white text-red-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            PDF {lang === 'hu' ? 'Előnézet' : 'Preview'}
+                          </button>
+                        )}
                         <button
                           onClick={() => setActiveTab('code')}
                           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'code' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
@@ -1266,18 +1275,48 @@ export default function App() {
                         </button>
                       </div>
 
-                      {activeTab === 'code' && (
-                        <button
-                          onClick={handleRunCode}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-sm"
-                        >
-                          <Play className="w-4 h-4 fill-current" />
-                          {lang === 'hu' ? 'Kód Futtatása' : 'Run Code'}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {selectedProject?.id === 3 && (
+                          <a
+                            href="/SAMPLE_Financial_Report.pdf"
+                            download="SAMPLE_Financial_Report.pdf"
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors shadow-sm text-sm"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            {lang === 'hu' ? 'PDF Letöltés' : 'Download PDF'}
+                          </a>
+                        )}
+                        {activeTab === 'code' && (
+                          <button
+                            onClick={handleRunCode}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+                          >
+                            <Play className="w-4 h-4 fill-current" />
+                            {lang === 'hu' ? 'Kód Futtatása' : 'Run Code'}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {activeTab === 'code' ? (
+                    {activeTab === ('pdf' as any) && selectedProject?.id === 3 ? (
+                      <motion.div key="pdf" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                        <div className="flex items-center gap-3 px-4 py-2.5 bg-red-700 border-b border-red-800">
+                          <FileSpreadsheet className="w-4 h-4 text-red-200 shrink-0"/>
+                          <span className="text-xs font-mono text-red-100 font-semibold">SAMPLE_Financial_Report.pdf</span>
+                          <span className="ml-auto">
+                            <a href="/SAMPLE_Financial_Report.pdf" download className="flex items-center gap-1.5 px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-md text-xs font-medium transition-colors">
+                              ↓ {lang === 'hu' ? 'Letöltés' : 'Download'}
+                            </a>
+                          </span>
+                        </div>
+                        <iframe
+                          src="/SAMPLE_Financial_Report.pdf"
+                          className="w-full border-0"
+                          style={{height:'600px'}}
+                          title="Financial Report PDF"
+                        />
+                      </motion.div>
+                    ) : activeTab === 'code' ? (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
