@@ -53,6 +53,7 @@ import {
 } from 'recharts';
 import { portfolioRiskCode, portfolioRiskCodeSnippet, portfolioRiskSQLCode } from './data/portfolioRiskCode';
 import { creditFraudCode, creditFraudSnippet } from './data/creditFraudDetection';
+import { financialReportCode, financialReportSnippet } from './data/financialReportingTool';
 
 const content = {
   hu: {
@@ -141,6 +142,14 @@ const content = {
           tags: ['Python', 'Scikit-learn', 'Random Forest', 'Kaggle'],
           metrics: 'AUC: 0.97 | Recall: 94%',
           code: creditFraudCode
+        },
+        {
+          id: 3,
+          title: 'Automatizált Pénzügyi Riporting Eszköz',
+          description: 'Ez a projekt egy teljes körű, parancssori pénzügyi riporting rendszer, amely három adatforrást támogat: élő Yahoo Finance adatokat (yfinance), saját CSV-t és szintetikus mintaadatot. A rendszer automatikusan generál két riportot: egy többlapú, professzionálisan formázott Excel munkafüzetet (openpyxl) és egy kétoldalas PDF executive summaryt (ReportLab).\n\nAz elemzési motor (analysis.py) havi Actual vs. Budget összehasonlítást, kategória- és osztályszintű varianciaanalízist, bruttó árrést, EBITDA-t és nettó eredményt számol. Az Excel riport öt lapból áll: Executive Summary KPI kártyákkal és havi P&L táblázattal, Category Variance (traffic-light státuszjelzőkkel), Department Costs, Charts Data (beágyazott sávdiagrammokkal), és Raw Transactions (szűrhető, 1200+ sor). A PDF riport makrogazdasági kontextust (FRED API) is tartalmaz, és automatikusan commentaryt generál a számokhoz.\n\nA megoldás Pythonban íródott, pandas, numpy, openpyxl, reportlab és yfinance könyvtárakkal. Egy parancssori flag-gel futtatható bármilyen tickerre vagy saját adatfájlra.',
+          tags: ['Python', 'openpyxl', 'ReportLab', 'pandas', 'Yahoo Finance'],
+          metrics: 'Excel + PDF · 5 sheet',
+          code: financialReportCode
         }
       ]
     },
@@ -237,6 +246,14 @@ const content = {
           tags: ['Python', 'Scikit-learn', 'Random Forest', 'Kaggle'],
           metrics: 'AUC: 0.97 | Recall: 94%',
           code: creditFraudCode
+        },
+        {
+          id: 3,
+          title: 'Automated Financial Reporting Tool',
+          description: 'A full-featured, command-line financial reporting system supporting three data sources: live Yahoo Finance data (yfinance), a custom CSV, or synthetic sample data. The tool automatically generates two reports: a professionally formatted multi-sheet Excel workbook (openpyxl) and a two-page executive PDF summary (ReportLab).\n\nThe analysis engine (analysis.py) computes monthly Actual vs. Budget comparisons, category- and department-level variance analysis, gross margin, EBITDA, and net income. The Excel report has five sheets: Executive Summary with KPI cards and a monthly P&L table, Category Variance with traffic-light status flags, Department Costs, Charts Data with embedded bar and line charts, and Raw Transactions (filterable, 1,200+ rows). The PDF includes macro-economic context via the FRED API and auto-generates narrative commentary from the numbers.\n\nThe solution is written in Python using pandas, numpy, openpyxl, reportlab, and yfinance. A single CLI flag runs it against any ticker or custom data file.',
+          tags: ['Python', 'openpyxl', 'ReportLab', 'pandas', 'Yahoo Finance'],
+          metrics: 'Excel + PDF · 5 sheets',
+          code: financialReportCode
         }
       ]
     },
@@ -775,14 +792,72 @@ export default function App() {
   ].reverse();
   const fraudCm = {tn:56782,fp:82,fn:18,tp:80};
 
+  // Financial Reporting Tool – dashboard data
+  const finMonthly = [
+    {m:'Jan',rev:696400,bud:697000,ni:189000,nibud:178000},
+    {m:'Feb',rev:722000,bud:722500,ni:196000,nibud:184000},
+    {m:'Mar',rev:790550,bud:791000,ni:215000,nibud:201000},
+    {m:'Apr',rev:824500,bud:826000,ni:224000,nibud:210000},
+    {m:'May',rev:867000,bud:866000,ni:236000,nibud:220000},
+    {m:'Jun',rev:900100,bud:902000,ni:245000,nibud:229000},
+    {m:'Jul',rev:807500,bud:807000,ni:220000,nibud:205000},
+    {m:'Aug',rev:765000,bud:764000,ni:208000,nibud:193000},
+    {m:'Sep',rev:892500,bud:893000,ni:243000,nibud:228000},
+    {m:'Oct',rev:935000,bud:934000,ni:255000,nibud:238000},
+    {m:'Nov',rev:1002300,bud:1003000,ni:273000,nibud:254000},
+    {m:'Dec',rev:1172370,bud:1175000,ni:319000,nibud:297000},
+  ];
+  const finCategories = [
+    {cat:'Revenue',actual:10374820,budget:10090000,type:'income'},
+    {cat:'COGS',actual:3782470,budget:3780000,type:'expense'},
+    {cat:'Salaries',actual:2521440,budget:2520000,type:'expense'},
+    {cat:'Marketing',actual:872500,budget:870000,type:'expense'},
+    {cat:'Operations',actual:645000,budget:643000,type:'expense'},
+    {cat:'R&D',actual:458000,budget:455000,type:'expense'},
+    {cat:'Admin & Legal',actual:258000,budget:256000,type:'expense'},
+    {cat:'Depreciation',actual:215000,budget:215000,type:'expense'},
+  ].map(r => ({...r, varPct: ((r.actual - r.budget) / r.budget * 100)}));
+
   const handleRunCode = () => {
     setActiveTab('output');
     setRunState('running');
     setLogs([]);
 
     const isFraud = selectedProject?.id === 2;
+    const isFinReport = selectedProject?.id === 3;
 
-    const logSequence = isFraud ? [
+    const logSequence = isFinReport ? [
+      " Automated Financial Reporting Tool",
+      "─────────────────────────────────────────────",
+      "  Generating synthetic sample data for FY2024...",
+      "  4,512 transactions generated",
+      "  Building analysis engine...",
+      "  ✅ monthly_summary()  →  12 months computed",
+      "  ✅ category_variance() →  8 categories",
+      "  ✅ department_breakdown() →  5 departments",
+      "  ✅ kpi_snapshot() complete",
+      "",
+      "  ══════════════════════════════════════════════════════",
+      "    Acme Corp (Sample Data)  (SAMPLE)",
+      "  ══════════════════════════════════════════════════════",
+      "    Revenue   :        $10,374,820  (+2.8% vs budget)",
+      "    Costs     :         $7,212,450  (+1.1% vs budget)",
+      "    Net Income:         $3,162,370  (+6.2% vs budget)",
+      "    GP Margin :               63.4%",
+      "    EBITDA Mgn:               33.8%",
+      "    Best Month:            December",
+      "  ══════════════════════════════════════════════════════",
+      "",
+      "  Building Excel report (5 sheets)...",
+      "  ✅  Excel saved → SAMPLE_Financial_Report.xlsx",
+      "  Building PDF report (ReportLab)...",
+      "  Fetching macro context from FRED...",
+      "  ✅  PDF saved  → SAMPLE_Financial_Report.pdf",
+      "",
+      "Done in 3.4s",
+      "   Excel → ./SAMPLE_Financial_Report.xlsx",
+      "   PDF   → ./SAMPLE_Financial_Report.pdf"
+    ] : isFraud ? [
       "$ FRAUD DETECTION ML – PORTFÓLIÓ PROJEKT",
       "============================================================",
       "[1] Adathalmaz betöltve: 284,807 tranzakció, 31 változó",
@@ -1179,8 +1254,8 @@ export default function App() {
                           onClick={() => setActiveTab('sql')}
                           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'sql' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                         >
-                          {selectedProject?.id === 2 ? <FileSpreadsheet className="w-4 h-4" /> : <Database className="w-4 h-4" />}
-                          {selectedProject?.id === 2 ? 'Excel Preview' : 'SQL View'}
+                          {(selectedProject?.id === 2 || selectedProject?.id === 3) ? <FileSpreadsheet className="w-4 h-4" /> : <Database className="w-4 h-4" />}
+                          {(selectedProject?.id === 2 || selectedProject?.id === 3) ? 'Excel Preview' : 'SQL View'}
                         </button>
                         <button
                           onClick={() => setActiveTab('code')}
@@ -1217,7 +1292,7 @@ export default function App() {
                           <span className="ml-4 text-xs font-mono text-slate-300">portfolio_risk_management.py</span>
                         </div>
                         <pre className="p-4 overflow-x-auto text-sm font-mono text-slate-300 leading-relaxed max-h-[500px]">
-                          <code>{selectedProject.id === 1 ? portfolioRiskCodeSnippet : selectedProject.id === 2 ? creditFraudSnippet : selectedProject.code}</code>
+                          <code>{selectedProject.id === 1 ? portfolioRiskCodeSnippet : selectedProject.id === 2 ? creditFraudSnippet : selectedProject.id === 3 ? financialReportSnippet : selectedProject.code}</code>
                         </pre>
                       </motion.div>
                     ) : activeTab === 'sql' && selectedProject?.id === 2 ? (
@@ -1271,6 +1346,83 @@ export default function App() {
                               </div>
                               <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
                                 KPI_Summary sheet — {kpiRows.length} rows · további 5 sheet: ROC_Data, PR_Data, Feature_Importance, Predictions (10k sor), Confusion_Matrix
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </motion.div>
+                    ) : activeTab === 'sql' && selectedProject?.id === 3 ? (
+                      <motion.div key="excel3" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                        <div className="flex items-center gap-3 px-4 py-2.5 bg-emerald-800 border-b border-emerald-700">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-300 shrink-0"/>
+                          <span className="text-xs font-mono text-emerald-200 font-semibold">SAMPLE_Financial_Report.xlsx</span>
+                          <span className="text-emerald-600 text-xs">|</span>
+                          <span className="text-xs font-mono text-emerald-400">5 sheets  ·  Power BI ready</span>
+                        </div>
+                        {(() => {
+                          const sheets = ['Executive Summary','Category Variance','Department Costs','Charts Data','Raw Transactions'];
+                          return (
+                            <div>
+                              <div className="flex gap-0 border-b border-slate-200 bg-slate-50 overflow-x-auto">
+                                {sheets.map((s,i) => (
+                                  <button key={s} className={`px-3 py-2 text-xs font-medium whitespace-nowrap border-r border-slate-200 transition-colors ${i===0?'bg-white text-emerald-700 border-b-2 border-b-emerald-600':'text-slate-500 hover:bg-white'}`}>{s}</button>
+                                ))}
+                              </div>
+                              <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                                  {[
+                                    {label:'Total Revenue',val:'$10,374,820',badge:'+2.8%',good:true},
+                                    {label:'Total Costs',val:'$7,212,450',badge:'+1.1%',good:false},
+                                    {label:'Net Income',val:'$3,162,370',badge:'+6.2%',good:true},
+                                    {label:'Gross Margin',val:'63.4%',badge:'GP / Rev',good:null},
+                                    {label:'EBITDA Margin',val:'33.8%',badge:'Full Year',good:null},
+                                    {label:'Best Month',val:'December',badge:'By Revenue',good:null},
+                                  ].map(k => (
+                                    <div key={k.label} className="bg-white rounded-lg border border-slate-200 p-3">
+                                      <div className="text-xs text-slate-400 mb-1">{k.label}</div>
+                                      <div className="text-base font-bold text-slate-800">{k.val}</div>
+                                      <div className={`text-xs font-semibold mt-1 ${k.good===true?'text-emerald-600':k.good===false?'text-red-500':'text-blue-600'}`}>{k.badge}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead className="bg-emerald-800 text-emerald-100">
+                                    <tr>{['Month','Rev Actual','Rev Budget','Rev Var%','Net Income','NI Budget','NI Var%'].map(h=>(
+                                      <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
+                                    ))}</tr>
+                                  </thead>
+                                  <tbody>
+                                    {finMonthly.map((r,i)=>{
+                                      const revPct = ((r.rev-r.bud)/r.bud*100).toFixed(1);
+                                      const niPct  = ((r.ni-r.nibud)/r.nibud*100).toFixed(1);
+                                      return (
+                                        <tr key={i} className={`border-b border-slate-100 ${i%2===0?'bg-white':'bg-slate-50'} hover:bg-emerald-50/30`}>
+                                          <td className="px-3 py-1.5 font-semibold text-slate-700">{r.m}</td>
+                                          <td className="px-3 py-1.5 font-mono">${r.rev.toLocaleString()}</td>
+                                          <td className="px-3 py-1.5 font-mono text-slate-500">${r.bud.toLocaleString()}</td>
+                                          <td className={`px-3 py-1.5 font-bold ${parseFloat(revPct)>=0?'text-emerald-600':'text-red-500'}`}>{parseFloat(revPct)>=0?'+':''}{revPct}%</td>
+                                          <td className="px-3 py-1.5 font-mono">${r.ni.toLocaleString()}</td>
+                                          <td className="px-3 py-1.5 font-mono text-slate-500">${r.nibud.toLocaleString()}</td>
+                                          <td className={`px-3 py-1.5 font-bold ${parseFloat(niPct)>=0?'text-emerald-600':'text-red-500'}`}>{parseFloat(niPct)>=0?'+':''}{niPct}%</td>
+                                        </tr>
+                                      );
+                                    })}
+                                    <tr className="bg-emerald-800 text-white font-bold">
+                                      <td className="px-3 py-2">FULL YEAR</td>
+                                      <td className="px-3 py-2 font-mono">$10,374,820</td>
+                                      <td className="px-3 py-2 font-mono opacity-70">$10,090,000</td>
+                                      <td className="px-3 py-2">+2.8%</td>
+                                      <td className="px-3 py-2 font-mono">$3,162,370</td>
+                                      <td className="px-3 py-2 font-mono opacity-70">$2,979,000</td>
+                                      <td className="px-3 py-2">+6.2%</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                              <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
+                                Executive Summary sheet — 12 rows · további 4 sheet: Category Variance, Department Costs, Charts Data, Raw Transactions (4,512 sor)
                               </div>
                             </div>
                           );
@@ -1575,8 +1727,97 @@ export default function App() {
                               </div>
                             )}
 
+                            {/* Visual Dashboard Results – Financial Reporting Tool */}
+                            {runState === 'done' && selectedProject?.id === 3 && (
+                              <div ref={dashboardRef} className="flex flex-col gap-6 mt-4">
+                                <div className="flex justify-center gap-2 mb-2">
+                                  {[1,2].map(p => (
+                                    <button key={p} onClick={() => setDashboardPage(p)}
+                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${dashboardPage===p?'bg-emerald-600 text-white shadow-md':'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                                      {lang==='hu'?`Oldal ${p}`:`Page ${p}`}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {dashboardPage === 1 && (
+                                  <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} className="flex flex-col gap-4">
+                                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <span className="text-sm font-semibold text-slate-800">Monthly Revenue: Actual vs Budget</span>
+                                        <span className="ml-auto text-xs text-slate-400">FY2024 · USD</span>
+                                      </div>
+                                      <div style={{width:'100%',height:240}}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <BarChart data={finMonthly} margin={{top:8,right:16,left:8,bottom:24}}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                                            <XAxis dataKey="m" tick={{fontSize:10}}/>
+                                            <YAxis tickFormatter={(v:number)=>`$${(v/1000).toFixed(0)}k`} tick={{fontSize:10}}/>
+                                            <RechartsTooltip formatter={(v:number)=>`$${v.toLocaleString()}`}/>
+                                            <Legend wrapperStyle={{fontSize:12,paddingTop:8}}/>
+                                            <Bar dataKey="rev" name="Actual" fill="#1b3a5c" radius={[3,3,0,0]}/>
+                                            <Bar dataKey="bud" name="Budget" fill="#2e8b7a" radius={[3,3,0,0]}/>
+                                          </BarChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    </div>
+                                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <span className="text-sm font-semibold text-slate-800">Net Income: Actual vs Budget</span>
+                                        <span className="ml-auto text-xs text-slate-400">NI Var: +6.2% vs plan</span>
+                                      </div>
+                                      <div style={{width:'100%',height:220}}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <RechartsLineChart data={finMonthly} margin={{top:8,right:16,left:8,bottom:24}}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                                            <XAxis dataKey="m" tick={{fontSize:10}}/>
+                                            <YAxis tickFormatter={(v:number)=>`$${(v/1000).toFixed(0)}k`} tick={{fontSize:10}}/>
+                                            <RechartsTooltip formatter={(v:number)=>`$${v.toLocaleString()}`}/>
+                                            <Legend wrapperStyle={{fontSize:12,paddingTop:8}}/>
+                                            <Line type="monotone" dataKey="ni" stroke="#1b3a5c" strokeWidth={2.5} dot={false} name="Actual"/>
+                                            <Line type="monotone" dataKey="nibud" stroke="#2e8b7a" strokeWidth={2} dot={false} strokeDasharray="5 3" name="Budget"/>
+                                          </RechartsLineChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+
+                                {dashboardPage === 2 && (
+                                  <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} className="flex flex-col gap-4">
+                                    <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                      <div className="text-sm font-semibold text-slate-800 mb-3">Category Variance Analysis — Full Year</div>
+                                      <div style={{width:'100%',height:280}}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <BarChart data={finCategories} layout="vertical" margin={{top:0,right:60,left:80,bottom:0}}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/>
+                                            <XAxis type="number" tickFormatter={(v:number)=>`${v>=0?'+':''}${v.toFixed(1)}%`} tick={{fontSize:10}}/>
+                                            <YAxis type="category" dataKey="cat" tick={{fontSize:10}} width={80}/>
+                                            <RechartsTooltip formatter={(v:number)=>`${v>=0?'+':''}${v.toFixed(2)}%`}/>
+                                            <ReferenceLine x={0} stroke="#94a3b8" strokeWidth={1.5}/>
+                                            <Bar dataKey="varPct" name="Variance %" radius={[0,3,3,0]}>
+                                              {finCategories.map((r,i)=>(
+                                                <Cell key={i} fill={
+                                                  r.type==='income'
+                                                    ? (r.varPct>=0?'#1b3a5c':'#dc3545')
+                                                    : (r.varPct<=0?'#198754':'#dc3545')
+                                                }/>
+                                              ))}
+                                            </Bar>
+                                          </BarChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                      <div className="flex gap-4 mt-2 text-xs text-slate-500">
+                                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-[#1b3a5c]"/> Favorable</span>
+                                        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-[#dc3545]"/> Unfavorable</span>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </div>
+                            )}
+
                             {/* Visual Dashboard Results – Portfolio Risk */}
-                            {runState === 'done' && selectedProject?.id !== 2 && (
+                            {runState === 'done' && selectedProject?.id === 1 && (
                               <div ref={dashboardRef} className="flex flex-col gap-6 mt-4">
                                 {/* Pagination Controls */}
                                 <div className="flex justify-center gap-2 mb-4">
